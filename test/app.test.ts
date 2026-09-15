@@ -124,6 +124,8 @@ describe("capabilities command", () => {
       expect(stdout.value + stderr.value).not.toContain(DEVICE_ID);
       expect(stdout.value + stderr.value).not.toContain("Bearer");
     },
+    // Includes cold Windows security-process startup while creating credentials.
+    15_000,
   );
 
   it("requires an explicit target and rejects extra arguments", () => {

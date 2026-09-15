@@ -213,6 +213,13 @@ describe("Windows credential ACL verification", () => {
     expect(decodeWindowsText(buffer)).toBe(record);
   });
 
+  it("reads the security descriptor after a path on drive D", () => {
+    const record = `D:\\a\\_temp\\private\r\nD:PAI(A;OICI;FA;;;SY)(A;OICI;FA;;;${userSid})\r\n`;
+    expect(isPrivateWindowsAcl(parseWindowsAclText(record), userSid)).toBe(
+      true,
+    );
+  });
+
   it.each([
     ["empty", Buffer.alloc(0)],
     ["BOM-only", Buffer.from([0xff, 0xfe])],
@@ -235,6 +242,17 @@ describe("Windows credential ACL verification", () => {
       trustees: [userSid, "S-1-5-18"],
     });
     expect(isPrivateWindowsAcl(acl, userSid)).toBe(true);
+  });
+
+  it("resolves the Administrators group to its numeric SID for removal", () => {
+    const acl = parseWindowsAclText(`D:P(A;;FA;;;SY)(A;;FA;;;BA)`);
+    expect(acl.trustees).toEqual(["S-1-5-18", "S-1-5-32-544"]);
+    expect(isPrivateWindowsAcl(acl, userSid)).toBe(false);
+  });
+
+  it("does not treat an unresolved local administrator alias as the current user", () => {
+    const acl = parseWindowsAclText(`D:P(A;;FA;;;SY)(A;;FA;;;LA)`);
+    expect(isPrivateWindowsAcl(acl, userSid)).toBe(false);
   });
 
   it.each([

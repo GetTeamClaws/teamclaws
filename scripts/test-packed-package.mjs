@@ -17,7 +17,11 @@ try {
   const packed = JSON.parse(packOutput)[0];
   if (!packed?.filename) throw new Error("npm pack did not return a filename");
   const archive = join(root, packed.filename);
-  const { stdout: listing } = await run("tar", ["-tf", archive]);
+  const tar =
+    process.platform === "win32"
+      ? join(process.env.SystemRoot ?? "C:\\Windows", "System32", "tar.exe")
+      : "tar";
+  const { stdout: listing } = await run(tar, ["-tf", archive]);
   const archiveEntries = archiveListingEntries(listing);
   for (const required of [
     "package/dist/cli.js",

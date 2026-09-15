@@ -309,6 +309,25 @@ async function verifyWindowsPath(
 
 type WindowsAcl = { protected: boolean; trustees: string[] };
 
+let localAdministratorSid: Promise<string> | undefined;
+
+function resolveLocalAdministratorSid(): Promise<string> {
+  return (localAdministratorSid ??= execFile(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "[Security.AccessControl.RawSecurityDescriptor]::new('D:(A;;FA;;;LA)').DiscretionaryAcl[0].SecurityIdentifier.Value",
+    ],
+    { encoding: "utf8" },
+  ).then(({ stdout }) => {
+    const sid = stdout.trim();
+    if (!/^S-1-5-21-\d+-\d+-\d+-500$/u.test(sid)) throw storageError();
+    return sid;
+  }));
+}
+
 export function isPrivateWindowsAcl(acl: WindowsAcl, userSid: string): boolean {
   const allowed = new Set([userSid, SYSTEM_SID]);
   return (
@@ -324,7 +343,14 @@ async function readWindowsAcl(path: string): Promise<WindowsAcl> {
     await execFile("icacls.exe", [path, "/save", aclPath, "/c", "/q"]);
     const buffer = await readFile(aclPath);
     const text = decodeWindowsText(buffer);
-    return parseWindowsAclText(text);
+    const acl = parseWindowsAclText(text);
+    if (acl.trustees.includes("LA")) {
+      const administratorSid = await resolveLocalAdministratorSid();
+      acl.trustees = acl.trustees.map((sid) =>
+        sid === "LA" ? administratorSid : sid,
+      );
+    }
+    return acl;
   } finally {
     await rm(aclPath, { force: true }).catch(() => undefined);
   }
@@ -332,7 +358,8 @@ async function readWindowsAcl(path: string): Promise<WindowsAcl> {
 
 export function parseWindowsAclText(text: string): WindowsAcl {
   const descriptor =
-    text.split(/\r?\n/u).find((line) => line.includes("D:")) ?? "";
+    text.split(/\r?\n/u).find((line) => /D:(?:P|AI|AR)*(?:\(|$)/u.test(line)) ??
+    "";
   const daclStart = descriptor.indexOf("D:");
   if (daclStart < 0) return { protected: false, trustees: [] };
   const daclBodyStart = daclStart + 2;
@@ -344,7 +371,11 @@ export function parseWindowsAclText(text: string): WindowsAcl {
   const firstAce = dacl.indexOf("(");
   const controlFlags = dacl.slice(0, firstAce < 0 ? undefined : firstAce);
   const trustees = [...dacl.matchAll(/;;;([^;)]+)\)/gu)].map((match) =>
-    match[1] === "SY" ? SYSTEM_SID : (match[1] ?? ""),
+    match[1] === "SY"
+      ? SYSTEM_SID
+      : match[1] === "BA"
+        ? "S-1-5-32-544"
+        : (match[1] ?? ""),
   );
   return {
     protected: controlFlags.includes("P"),
@@ -355,7 +386,7 @@ export function parseWindowsAclText(text: string): WindowsAcl {
 async function currentWindowsSid(): Promise<string> {
   try {
     const { stdout } = await execFile(
-      "whoami.exe",
+      join(process.env.SystemRoot ?? "C:\\Windows", "System32", "whoami.exe"),
       ["/user", "/fo", "csv", "/nh"],
       {
         encoding: "utf8",

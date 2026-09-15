@@ -8,9 +8,6 @@
     "type": "git",
     "url": "git+https://github.com/GetTeamClaws/teamclaws.git"
   },
-  "bugs": {
-    "url": "https://github.com/GetTeamClaws/teamclaws/issues"
-  },
   "type": "module",
   "private": false,
   "engines": {
