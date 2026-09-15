@@ -1,0 +1,50 @@
+{
+  "name": "teamclaws",
+  "version": "1.0.1",
+  "description": "Official TeamClaws command-line client and agent skills",
+  "license": "PolyForm-Shield-1.0.0",
+  "homepage": "https://teamclaws.com",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GetTeamClaws/teamclaws.git"
+  },
+  "bugs": {
+    "url": "https://github.com/GetTeamClaws/teamclaws/issues"
+  },
+  "type": "module",
+  "private": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "teamclaws": "./dist/cli.js"
+  },
+  "files": [
+    "dist/",
+    "skills/",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:package": "npm run build && node scripts/test-packed-package.mjs",
+    "audit": "npm audit --audit-level=high",
+    "verify": "npm run format:check && npm run lint && npm run typecheck && npm run test:coverage && npm run test:package && npm run audit"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.20.1",
+    "@vitest/coverage-v8": "4.1.11",
+    "eslint": "10.9.1",
+    "prettier": "3.9.6",
+    "typescript": "6.0.3",
+    "typescript-eslint": "8.68.0",
+    "vitest": "4.1.11"
+  }
+}

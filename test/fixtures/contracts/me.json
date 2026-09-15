@@ -1,0 +1,7 @@
+{
+  "id": "44444444-4444-4444-8444-444444444444",
+  "email": "user@example.com",
+  "display_name": "Example User",
+  "expires_at": "2026-08-27T14:00:00Z",
+  "token_expired": false
+}

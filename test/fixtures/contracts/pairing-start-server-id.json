@@ -1,0 +1,10 @@
+{
+  "contract_version": 1,
+  "target": {
+    "server_id": "11111111-1111-4111-8111-111111111111"
+  },
+  "request_id": "22222222-2222-4222-8222-222222222222",
+  "device_name": "Example computer",
+  "client_name": "teamclaws-cli",
+  "client_version": "1.0.1"
+}

@@ -1,0 +1,38 @@
+{
+  "contract_version": 1,
+  "identity": {
+    "id": "test-identity-not-for-output",
+    "alias": "CLI guest"
+  },
+  "approved_scopes": [
+    "external_chat:capabilities:read",
+    "external_chat:sessions:create",
+    "external_chat:sessions:write"
+  ],
+  "providers": [],
+  "recommended_selection": null,
+  "policy": {
+    "allow_history_lookup": false,
+    "allow_shared_chat_participation": false,
+    "allow_fast_mode": false,
+    "require_turn_approval": false,
+    "revision": 1,
+    "updated_at": "2026-09-05T05:00:00+00:00"
+  },
+  "features": {
+    "attachments": true,
+    "standalone_attachments": true,
+    "history": false,
+    "shared_participation": false,
+    "compaction": true,
+    "selection": true,
+    "polling": "short"
+  },
+  "limits": {
+    "message_chars": 12000,
+    "history_messages": 100,
+    "recommended_poll_seconds": 3,
+    "max_file_bytes": 1048576,
+    "max_transfer_bytes": 1048576
+  }
+}
