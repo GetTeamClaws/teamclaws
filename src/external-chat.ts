@@ -623,7 +623,7 @@ function parseCapabilities(
       throw invalidChatResponse();
     }
     const id = requireString(provider.id, "provider identifier", 120);
-    if (provider.models.length > 128) throw invalidChatResponse();
+    // Catalogs grow independently of the CLI; HTTP response bytes are bounded.
     const models = provider.models.map((model) => {
       if (!isObject(model)) throw invalidChatResponse();
       const reasoningValues = Array.isArray(model.supported_reasoning_levels)

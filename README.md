@@ -41,6 +41,7 @@ npx teamclaws servers list
 npx teamclaws pair status <server-identifier-or-canonical-workspace-address>
 npx teamclaws pair
 npx teamclaws pair <server-identifier-or-canonical-workspace-address> [--no-open]
+npx teamclaws shell <target> --command <text> [--json]
 npx teamclaws chat start <target> --message <text>
 npx teamclaws chat send <target> --session-id <uuid> --message <text>
 npx teamclaws chat watch <target> --session-id <uuid> --request-id <uuid>
@@ -71,6 +72,25 @@ credential through `www.teamclaws.com` or download and execute the generated
 Python helper. Use `--client-request-id <uuid>` to safely repeat an uncertain
 create request, and use the watch cursors printed in JSON events to resume
 monitoring without creating another turn.
+
+## Host shell commands
+
+`teamclaws shell <target> --command <text> [--json]` uses an existing saved
+pairing to execute the exact command text on the workspace host. Quote the
+command as one local shell argument; quotes, pipes and newlines inside that
+argument are preserved. Each request starts in the executing account's home
+directory. The command does not log in, pair, or load chat capabilities.
+
+Normal mode forwards stdout and stderr without adding text. JSON mode emits one
+object with `stdout`, `stderr`, and `exit_code`. Both modes return the remote
+process exit code. HTTP/authentication/transport errors use the existing CLI
+error output and failure codes.
+
+The client sends one POST to `/teamclaws-admin/api/shell/` with
+`Content-Type: text/plain; charset=utf-8`, never follows redirects, and never
+retries execution. The shell path has no command or HTTP operation deadline,
+command-size limit, or response/output-size limit. A network failure can leave the
+execution outcome unknown; inspect the host before deciding to run it again.
 
 ## Local storage
 

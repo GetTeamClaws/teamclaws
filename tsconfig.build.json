@@ -7,6 +7,5 @@
     "sourceMap": true,
     "types": ["node"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["test/**"]
+  "include": ["src/**/*.ts"]
 }

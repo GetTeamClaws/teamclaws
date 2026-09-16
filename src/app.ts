@@ -13,6 +13,7 @@ import {
 import type { FetchLike } from "./http.js";
 import { Output, type Writable } from "./output.js";
 import { PairingClient } from "./pairing.js";
+import { runShell, shellFetch } from "./shell.js";
 import { CredentialStore } from "./storage.js";
 import type { PairingTarget, ServerSummary } from "./types.js";
 import { parsePairingTarget } from "./validation.js";
@@ -88,6 +89,21 @@ export async function run(
   });
   try {
     switch (parsed.action) {
+      case "shell": {
+        const result = await runShell(
+          store,
+          dependencies.fetcher ?? shellFetch,
+          parsePairingTarget(parsed.target),
+          parsed.command,
+          signal,
+        );
+        if (parsed.json) stdout.write(`${JSON.stringify(result)}\n`);
+        else {
+          stdout.write(result.stdout);
+          stderr.write(result.stderr);
+        }
+        return result.exit_code;
+      }
       case "login":
         await auth.login(parsed.email, signal);
         return 0;
@@ -152,6 +168,7 @@ export async function run(
 }
 
 type ParsedArguments =
+  | { action: "shell"; json: boolean; target: string; command: string }
   | { action: "help"; json: boolean }
   | { action: "version"; json: boolean }
   | {
@@ -171,6 +188,21 @@ type ParsedArguments =
   | { action: "chat_watch"; json: boolean; options: ChatWatchOptions };
 
 export function parseArguments(arguments_: string[]): ParsedArguments {
+  if (arguments_[0] === "shell") {
+    const target = requiredPositional(arguments_, 1);
+    let command: string | undefined;
+    let json = false;
+    for (let index = 2; index < arguments_.length; index += 1) {
+      const option = arguments_[index];
+      if (option === "--command" && command === undefined) {
+        command = arguments_[++index];
+        if (command === undefined || command.length === 0) throw usageError();
+      } else if (option === "--json" && !json) json = true;
+      else throw usageError();
+    }
+    if (command === undefined) throw usageError();
+    return { action: "shell", target, command, json };
+  }
   const json = arguments_.includes("--json");
   const args = arguments_.filter((argument) => argument !== "--json");
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h")
@@ -439,5 +471,5 @@ function usageError(): TeamClawsError {
 }
 
 export function helpText(): string {
-  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws login [email] [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--json]\n  teamclaws servers list [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
+  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws login [email] [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--json]\n  teamclaws servers list [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
 }

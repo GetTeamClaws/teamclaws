@@ -1,7 +1,0 @@
-{
-  "code": "rate_limited",
-  "message": "Too many pairing requests. Try again later.",
-  "retryable": true,
-  "retry_after_seconds": 60,
-  "request_id": "22222222-2222-4222-8222-222222222222"
-}

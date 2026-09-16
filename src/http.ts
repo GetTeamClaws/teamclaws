@@ -12,9 +12,10 @@ export type JsonRequestOptions = {
   method?: "GET" | "POST";
   headers?: Record<string, string>;
   body?: unknown;
+  textBody?: string;
   form?: URLSearchParams;
-  timeoutMs?: number;
-  responseLimitBytes?: number;
+  timeoutMs?: number | null;
+  responseLimitBytes?: number | null;
   signal?: AbortSignal;
 };
 
@@ -29,18 +30,23 @@ export async function requestJson(
   url: string,
   options: JsonRequestOptions = {},
 ): Promise<JsonResponse> {
-  const timeout = AbortSignal.timeout(
-    options.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS,
-  );
-  const signal = options.signal
-    ? AbortSignal.any([timeout, options.signal])
-    : timeout;
+  const timeout =
+    options.timeoutMs === null
+      ? undefined
+      : AbortSignal.timeout(options.timeoutMs ?? DEFAULT_CONNECT_TIMEOUT_MS);
+  const signal =
+    timeout && options.signal
+      ? AbortSignal.any([timeout, options.signal])
+      : (timeout ?? options.signal);
   const headers = new Headers({
     Accept: "application/json",
     ...options.headers,
   });
   let body: string | undefined;
-  if (options.form) {
+  if (options.textBody !== undefined) {
+    headers.set("Content-Type", "text/plain; charset=utf-8");
+    body = options.textBody;
+  } else if (options.form) {
     headers.set("Content-Type", "application/x-www-form-urlencoded");
     body = options.form.toString();
   } else if (options.body !== undefined) {
@@ -54,10 +60,10 @@ export async function requestJson(
       headers,
       ...(body === undefined ? {} : { body }),
       redirect: "error",
-      signal,
+      ...(signal ? { signal } : {}),
     });
   } catch (error) {
-    if (signal.aborted) {
+    if (signal?.aborted) {
       throw new TeamClawsError(
         "network_timeout",
         "TeamClaws did not respond in time.",
@@ -78,7 +84,10 @@ export async function requestJson(
     );
   }
   const contentLength = Number(response.headers.get("content-length") ?? 0);
-  const limit = options.responseLimitBytes ?? DEFAULT_RESPONSE_LIMIT_BYTES;
+  const limit =
+    options.responseLimitBytes === null
+      ? Infinity
+      : (options.responseLimitBytes ?? DEFAULT_RESPONSE_LIMIT_BYTES);
   if (contentLength > limit) {
     throw new TeamClawsError(
       "response_too_large",

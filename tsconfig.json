@@ -12,12 +12,7 @@
     "noUnusedParameters": true,
     "verbatimModuleSyntax": true,
     "resolveJsonModule": true,
-    "types": ["node", "vitest/globals"]
+    "types": ["node"]
   },
-  "include": [
-    "src/**/*.ts",
-    "test/**/*.ts",
-    "eslint.config.js",
-    "vitest.config.ts"
-  ]
+  "include": ["src/**/*.ts", "eslint.config.js"]
 }
