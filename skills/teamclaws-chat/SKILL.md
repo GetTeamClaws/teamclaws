@@ -37,6 +37,21 @@ If `approval_required` appears, present its authenticated
 `owner_conversation_url` and continue waiting. Emit each `assistant_message`
 once. Claim success only after `request_succeeded` with at least one response.
 
+## Connected-app task approval
+
+When the connected workspace agent explicitly reports that a task involving an
+app connected through the TeamClaws API (such as email or calendar) is waiting
+for the user's external approval, direct the user to
+[TeamClaws Activity](https://www.teamclaws.com/activity/) to review the pending
+request. Do not infer Activity approval from a generic pending state.
+
+This is connected-app task approval. CLI login and workspace pairing retain
+their existing approval links; TCChat `approval_required` retains its returned
+`owner_conversation_url`. Never automatically approve a request or resubmit the
+task because approval is pending. Retain the existing request identifiers and
+follow the task's existing monitoring/resume instructions, using `chat watch`
+when resuming an already-created chat request.
+
 ## Continue or resume
 
 To add a later turn to the same conversation:
