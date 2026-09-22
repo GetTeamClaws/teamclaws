@@ -10,6 +10,9 @@ import type {
   WorkspaceCredential,
 } from "./types.js";
 
+const LOGIN_ACCOUNT_GUIDANCE =
+  "Use your TeamClaws account. If you already have a workspace, use the account that has access to it. This may use a different email from your AI assistant account.";
+
 export type Writable = { write(chunk: string): unknown };
 
 export class Output {
@@ -24,8 +27,13 @@ export class Output {
       schema_version: OUTPUT_SCHEMA_VERSION,
       event: "login_browser_required",
       url,
+      label: "Sign in to TeamClaws",
+      account_guidance: LOGIN_ACCOUNT_GUIDANCE,
     });
-    if (!this.json) this.stdout.write(`${url}\n`);
+    if (!this.json)
+      this.stdout.write(
+        `Sign in to TeamClaws: ${url}\n${LOGIN_ACCOUNT_GUIDANCE}\n`,
+      );
   }
 
   pairingBrowser(
@@ -78,6 +86,7 @@ export class Output {
       event: "auth_status",
       status,
     };
+    if (status === "signed_out") event.login_command = "teamclaws login --json";
     if (user) event.user = user;
     if (expiresAt) event.expires_at = expiresAt;
     this.event(event);
@@ -85,7 +94,7 @@ export class Output {
       this.stdout.write(
         status === "signed_in" && user
           ? `Signed in as ${user.display_name} (${user.email}).\n`
-          : "Not signed in to TeamClaws.\n",
+          : "Not signed in to TeamClaws. Run `teamclaws login` to sign in.\n",
       );
     }
   }
@@ -105,23 +114,34 @@ export class Output {
     }
   }
 
-  servers(servers: ServerSummary[]): void {
+  servers(servers: ServerSummary[], workspaceCount?: number): void {
     this.event({
       schema_version: OUTPUT_SCHEMA_VERSION,
       event: "servers_list",
       status: "success",
       servers,
+      workspace_count: workspaceCount ?? null,
+      discovery_state:
+        workspaceCount === 0
+          ? "no_workspaces"
+          : servers.some((server) => server.pairing_ready)
+            ? "ready"
+            : workspaceCount === undefined && servers.length === 0
+              ? "unknown"
+              : "not_ready",
     });
     if (!this.json) {
       if (servers.length === 0) {
         this.stdout.write(
-          "No pairing-ready TeamClaws workspaces are available.\n",
+          workspaceCount === 0
+            ? "No TeamClaws workspaces are available to this account. Purchase a workspace at https://teamclaws.com/app/.\n"
+            : "No pairing-ready TeamClaws workspaces are listed. Check existing workspaces at https://teamclaws.com/app/ before considering a purchase.\n",
         );
         return;
       }
       servers.forEach((server, index) => {
         this.stdout.write(
-          `${index + 1}. ${server.alias} — ${server.server_id} — ${server.workspace_url}\n`,
+          `${index + 1}. ${server.alias} — ${server.server_id} — ${server.workspace_url} — ${server.pairing_ready ? "ready to pair" : "not ready to pair"}\n`,
         );
       });
     }

@@ -14,6 +14,11 @@ export type ServerSummary = {
   pairing_ready: boolean;
 };
 
+export type WorkspaceInventory = {
+  servers: ServerSummary[];
+  workspace_count?: number;
+};
+
 export type PairingTarget =
   | { server_id: string; workspace_url?: never }
   | { workspace_url: string; server_id?: never };

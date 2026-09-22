@@ -5,6 +5,9 @@ description: Pair this filesystem-capable computer with one TeamClaws workspace 
 
 # Pair with TeamClaws
 
+For the full install-and-connect conversation, follow
+[teamclaws-onboard](../teamclaws-onboard/SKILL.md).
+
 Use the official `teamclaws` executable. Do not implement pairing inside this
 skill.
 
@@ -20,6 +23,13 @@ skill.
 - Never expose a device code, workspace credential, login token, authorization
   header, cookie, private key, or upstream response body.
 
+Pairing and pair status require a valid TeamClaws CLI login, including when an
+explicit workspace address or server identifier is supplied. On `login_required`
+or `invalid_authentication` (exit 3), explain that login is required. For a
+status-only request, stop. For an authorized connect request, follow the login
+skill and resume after verified login. Do not retry with an explicit target to bypass login.
+The CLI verifies account authentication before workspace contact or approval.
+
 ## Status-only guardrail
 
 When the user asks whether this computer is already paired or connected, run
@@ -29,7 +39,7 @@ only:
 teamclaws pair status <stable-server-identifier-or-canonical-workspace-address> --json
 ```
 
-Read the single terminal `pairing_status` event, answer immediately, and stop.
+Read the terminal `pairing_status` or authentication `error` event, answer immediately, and stop.
 The status command performs at most one bounded direct credential verification.
 Never invoke `teamclaws pair`, fetch a target skill or helper, discover chat
 capabilities, create a TCChat, or start polling in response to a status-only
@@ -44,15 +54,14 @@ teamclaws pair <stable-server-identifier> --json
 Use `--no-open` only when automatic browser opening is undesirable. The
 `pairing_browser_required` event still provides the safe approval address.
 
-When no stable server identifier is already known, a signed-in user may run:
-
-```text
-teamclaws pair --json
-```
-
-If multiple workspaces are available in a non-interactive session, stop on
-`server_selection_required` and ask the user to choose from separately obtained
-safe workspace information. Do not guess.
+When no selected stable identifier is known, run `teamclaws servers list --json`,
+show aliases and readiness, and ask which workspace the user wants to pair—even
+when only one is available. Pass the selected `server_id`; aliases are display
+labels, not unique command targets. Targetless `teamclaws pair --json` returns
+`server_selection_required` for any nonempty pairing-ready list and never
+creates approval automatically. Interactive targetless pairing also requires a
+selection. An empty or not-ready list is not proof that the account owns no
+workspaces; use the onboarding skill's discovery rules.
 
 ## Success evidence
 

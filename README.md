@@ -17,7 +17,7 @@ package.
 Install the published CLI:
 
 ```text
-npm install -g teamclaws
+npm install -g teamclaws@latest
 teamclaws --version
 ```
 
@@ -29,6 +29,43 @@ teamclaws --version
 ```
 
 GitHub source ZIPs must be built before use; they are not npm installers.
+
+## Agent onboarding
+
+> Install teamclaws@latest, read its agent skills, and help me connect to my cloud workspace.
+
+Start with [teamclaws-onboard](skills/teamclaws-onboard/SKILL.md). For a global
+installation, `npm root -g` locates the package root; read
+`teamclaws/skills/teamclaws-onboard/SKILL.md` beneath it. The package contains one
+shared workflow for login, alias-based user-selected pairing (including a single
+workspace), additional pairings, project transfer, and optional public/private
+live hosting. Login and pairing mechanics remain in their respective skills;
+[teamclaws-project](skills/teamclaws-project/SKILL.md) covers project work through
+the existing paired shell. Status-only requests do not start onboarding.
+
+### Onboarding output contract
+
+Existing event names and schema version remain unchanged. The
+`login_browser_required` event provides the safe `url`, a `label` of
+`Sign in to TeamClaws`, and `account_guidance`. Display these immediately while
+login keeps running. Signed-out `auth_status` includes the non-executing
+`login_command: "teamclaws login --json"`; status never starts device authorization.
+
+`servers list` requests `GET /api/cli/v1/servers/?include_inventory=1`. Updated
+brokers return `servers` and `workspace_count`: the count of all non-deleted
+owned and eligible shared workspaces, including those without a hostname yet.
+Individual server entries retain aliases, stable IDs, status and `pairing_ready`.
+Older brokers may omit the count; the CLI reports it as null and never infers
+an empty account from an empty filtered list.
+
+The `servers_list` event adds `workspace_count` and `discovery_state`:
+`no_workspaces` only for a verified count of zero, `ready` when any listed
+workspace is pairing-ready, `not_ready` when workspaces exist but none is ready,
+and `unknown` for an empty legacy response without a count. Discovery errors
+remain error events. A verified empty account uses https://teamclaws.com/app/ to
+purchase a workspace. Existing owners whose machines are being prepared do not
+need another purchase. Targetless pairing requires explicit selection even for
+one result; agents present aliases and pass only user-selected stable IDs.
 
 ## Commands
 
@@ -50,6 +87,13 @@ npx teamclaws chat watch <target> --session-id <uuid> --request-id <uuid>
 Human-readable output is the default. Add `--json` for the strict, versioned,
 newline-delimited JSON event stream intended for automation.
 
+Pairing (including explicit targets), server listing, pair status, chat, and shell
+require a valid TeamClaws CLI account login. Run `teamclaws login` first. The CLI
+refreshes and verifies that login before contacting the workspace or requesting
+pairing approval. Missing or invalid authentication exits with code 3 in both
+human and JSON modes. Help, version, login, auth status, and logout remain
+available. Saved workspace credentials are preserved when login is required.
+
 Pairing is broad privileged delegation to the approved workspace. The client
 does not request or select scopes, profiles, capability bundles, roles, user
 types, or permission labels. TeamClaws, Clawgate, and host policy determine the
@@ -59,8 +103,8 @@ The client never accepts a model or harness access token. An agent that already
 discovered a workspace passes only the selected stable server identifier to the
 `pair` command.
 
-`pair status` is side-effect free: it reads only the matching protected local
-credential, performs at most one direct workspace verification with a
+After account authentication, `pair status` reads the matching protected local
+workspace credential, performs at most one direct workspace verification with a
 five-second timeout, reports the result, and stops. It never starts pairing or
 loads external-chat resources.
 
@@ -117,7 +161,7 @@ Run `teamclaws chat capabilities <target> [--json]` with an existing saved
 workspace pairing. It reads the workspace capabilities endpoint with a shared
 120-second budget, attempts lasting at most 15 seconds, and pauses of up to five
 seconds between retryable failures or inventories with no model choices. It does not
-log in, pair, or start a chat. Without a saved pairing it makes no request.
+log in, pair, or start a chat. Without a saved pairing it makes no workspace request.
 
 JSON output is one `chat_capabilities` event with `schema_version: 1`,
 `status: "success"`, `source: "refresh"`, the safe workspace ID/origin, and
@@ -142,4 +186,4 @@ The timestamp describes snapshot generation, not an authorization lease. The
 existing refresh endpoint does not supply a generation timestamp. Chat requests
 still validate current authorization and selection; explicitly refresh if a
 selection is no longer available. No chat mutation is automatically replayed by
-this command. Pair status retains its one-request, terminal behavior.
+this command. Pair status retains its single workspace verification and terminal behavior.

@@ -89,6 +89,23 @@ export async function run(
   });
   try {
     switch (parsed.action) {
+      case "login":
+        await auth.login(parsed.email, signal);
+        return 0;
+      case "auth_status":
+        await auth.status(signal);
+        return 0;
+      case "logout":
+        await auth.logout(signal);
+        return 0;
+    }
+    const token = await auth.requireAccessToken(
+      parsed.action === "pair"
+        ? "Authenticate in the TeamClaws CLI with `teamclaws login` before making a pairing request."
+        : "Authenticate in the TeamClaws CLI with `teamclaws login` before running this command.",
+      signal,
+    );
+    switch (parsed.action) {
       case "shell": {
         const result = await runShell(
           store,
@@ -104,24 +121,12 @@ export async function run(
         }
         return result.exit_code;
       }
-      case "login":
-        await auth.login(parsed.email, signal);
-        return 0;
-      case "auth_status":
-        await auth.status(signal);
-        return 0;
-      case "logout":
-        await auth.logout(signal);
-        return 0;
       case "servers_list": {
-        const token = await auth.accessToken(signal);
-        if (!token) throw loginRequired();
-        const servers = await broker.servers(token, signal);
-        output.servers(servers);
+        const inventory = await broker.servers(token, signal);
+        output.servers(inventory.servers, inventory.workspace_count);
         return 0;
       }
       case "pair": {
-        const token = await auth.accessToken(signal);
         const target = parsed.target
           ? parsePairingTarget(parsed.target)
           : await discoverTarget(
@@ -383,36 +388,29 @@ function nonNegativeInteger(value?: string): number {
 
 async function discoverTarget(
   broker: BrokerClient,
-  token: string | undefined,
+  token: string,
   json: boolean,
   output: Output,
   io: AppIo | undefined,
   signal?: AbortSignal,
 ): Promise<PairingTarget> {
-  if (!token) {
-    throw new TeamClawsError(
-      "login_or_server_required",
-      "Sign in or provide a stable server identifier or canonical workspace address.",
-      { exitCode: 4 },
-    );
-  }
-  const servers = (await broker.servers(token, signal)).filter(
-    (server) => server.pairing_ready,
-  );
+  const inventory = await broker.servers(token, signal);
+  const servers = inventory.servers.filter((server) => server.pairing_ready);
   if (servers.length === 0) {
     throw new TeamClawsError(
       "no_pairing_ready_workspaces",
-      "No pairing-ready TeamClaws workspaces are available.",
+      inventory.workspace_count === 0
+        ? "No TeamClaws workspaces are available to this account. Purchase a workspace at https://teamclaws.com/app/."
+        : "No pairing-ready TeamClaws workspaces are available. Check existing workspaces at https://teamclaws.com/app/; this does not mean you need to purchase another.",
       { exitCode: 4 },
     );
   }
-  if (servers.length === 1) return { server_id: servers[0]!.server_id };
   const interactive =
     io?.interactive ?? (process.stdin.isTTY && process.stdout.isTTY);
   if (json || !interactive) {
     throw new TeamClawsError(
       "server_selection_required",
-      "More than one workspace is available. Provide the stable server identifier.",
+      "Choose a workspace by alias from `teamclaws servers list`, then provide its stable server identifier after the user agrees to pair.",
       { exitCode: 4 },
     );
   }
@@ -452,12 +450,6 @@ async function promptForServer(
   } finally {
     terminal.close();
   }
-}
-
-function loginRequired(): TeamClawsError {
-  return new TeamClawsError("login_required", "Sign in to TeamClaws first.", {
-    exitCode: 3,
-  });
 }
 
 function usageError(): TeamClawsError {

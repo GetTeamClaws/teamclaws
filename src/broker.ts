@@ -11,8 +11,12 @@ import {
 } from "./constants.js";
 import { TeamClawsError } from "./errors.js";
 import { errorFromResponse, requestJson, type FetchLike } from "./http.js";
-import type { PairingTarget, PendingPairing, ServerSummary } from "./types.js";
-import { parsePendingPairing, parseServersResponse } from "./validation.js";
+import type {
+  PairingTarget,
+  PendingPairing,
+  WorkspaceInventory,
+} from "./types.js";
+import { parsePendingPairing, parseWorkspaceInventory } from "./validation.js";
 
 export type BrokerOptions = {
   fetcher?: FetchLike;
@@ -35,15 +39,19 @@ export class BrokerClient {
   async servers(
     accessToken: string,
     signal?: AbortSignal,
-  ): Promise<ServerSummary[]> {
-    const response = await requestJson(this.fetcher, `${API_BASE}servers/`, {
-      headers: requestHeaders(accessToken),
-      ...(signal ? { signal } : {}),
-    });
+  ): Promise<WorkspaceInventory> {
+    const response = await requestJson(
+      this.fetcher,
+      `${API_BASE}servers/?include_inventory=1`,
+      {
+        headers: requestHeaders(accessToken),
+        ...(signal ? { signal } : {}),
+      },
+    );
     if (response.status === 401) {
       throw new TeamClawsError(
         "invalid_authentication",
-        "The TeamClaws login is no longer valid.",
+        "The TeamClaws login is no longer valid. Run `teamclaws login` to authenticate.",
         {
           exitCode: 3,
         },
@@ -52,7 +60,7 @@ export class BrokerClient {
     if (response.status < 200 || response.status >= 300) {
       throw errorFromResponse(response, "server_discovery_failed");
     }
-    return parseServersResponse(response.body);
+    return parseWorkspaceInventory(response.body);
   }
 
   async startPairing(

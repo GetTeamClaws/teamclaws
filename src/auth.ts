@@ -118,6 +118,18 @@ export class AuthService {
     return active.access_token;
   }
 
+  async requireAccessToken(
+    message: string,
+    signal?: AbortSignal,
+  ): Promise<string> {
+    const token = await this.accessToken(signal);
+    if (!token) {
+      throw new TeamClawsError("login_required", message, { exitCode: 3 });
+    }
+    await this.fetchIdentity(token, signal);
+    return token;
+  }
+
   private async ensureActive(
     credential: LoginCredential,
     signal?: AbortSignal,
@@ -251,7 +263,7 @@ export class AuthService {
     if (response.status === 401) {
       throw new TeamClawsError(
         "invalid_authentication",
-        "The TeamClaws login is no longer valid.",
+        "The TeamClaws login is no longer valid. Run `teamclaws login` to authenticate.",
         {
           exitCode: 3,
         },
@@ -431,7 +443,11 @@ function oauthError(status: number, body: unknown): TeamClawsError {
   if (error) {
     code = error === "invalid_grant" ? "invalid_authentication" : error;
   }
-  return new TeamClawsError(code, "TeamClaws rejected the login request.", {
+  const message =
+    error === "invalid_grant"
+      ? "The TeamClaws login is no longer valid. Run `teamclaws login` to authenticate."
+      : "TeamClaws rejected the login request.";
+  return new TeamClawsError(code, message, {
     retryable: status >= 500,
     exitCode: 3,
   });

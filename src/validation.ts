@@ -571,7 +571,7 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
       },
     );
   }
-  assertExactKeys(value, ["servers"], [], "server list");
+  assertExactKeys(value, ["servers"], ["workspace_count"], "server list");
   if (!Array.isArray(value.servers)) {
     throw new TeamClawsError(
       "invalid_response",
@@ -745,4 +745,22 @@ function invalidCredentialFile(): TeamClawsError {
     "The local TeamClaws credential file is invalid.",
     { exitCode: 9 },
   );
+}
+
+export function parseWorkspaceInventory(value: unknown): {
+  servers: ServerSummary[];
+  workspace_count?: number;
+} {
+  const servers = parseServersResponse(value);
+  if (!isObject(value) || value.workspace_count === undefined)
+    return { servers };
+  return {
+    servers,
+    workspace_count: requireInteger(
+      value.workspace_count,
+      "workspace count",
+      servers.length,
+      Number.MAX_SAFE_INTEGER,
+    ),
+  };
 }

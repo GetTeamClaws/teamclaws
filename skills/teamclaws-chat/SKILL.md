@@ -12,8 +12,8 @@ transport, idempotency, and durable request polling.
 ## Required boundary
 
 - Do not read, print, copy, transform, or pass the workspace credential.
-- Do not call `www.teamclaws.com` for post-pair chat. The CLI talks directly to
-  the paired workspace.
+- Let the CLI verify the existing TeamClaws account login before chat. Chat
+  requests then go directly to the paired workspace using its saved credential.
 - Do not download or execute the generated target helper when the installed CLI
   supports these native chat commands.
 - Use only an explicit stable server identifier or canonical workspace origin.
@@ -56,6 +56,8 @@ invent a new idempotency key to hide uncertainty about whether a turn exists.
 
 ## Failure handling
 
+- `login_required` or `invalid_authentication` (exit 3): tell the user to run
+  `teamclaws login` and stop; retain the existing workspace pairing.
 - `re_pair_required`: direct the user to TCChat Pair & Transfer.
 - `selection_unavailable`: use the advertised recommendation unless the user
   asks for another valid selection.
