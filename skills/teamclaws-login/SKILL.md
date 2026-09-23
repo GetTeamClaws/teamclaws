@@ -24,7 +24,7 @@ next owner-facing message must link `login_browser_required.url` with the label
 while the user signs in; do not restart it while awaiting approval. Confirm the
 returned account after `login_complete` and exit 0, not after opening a browser.
 Start without an email unless the user supplies one. Optional email is a bind
-sent to TeamClawsdeploy, not identity asserted by this process. Never transfer a
+sent to TeamClaws, not identity asserted by this process. Never transfer a
 model or harness token into this process. The command-line client stores its own
 protected login credential locally.
 

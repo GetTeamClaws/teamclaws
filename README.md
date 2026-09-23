@@ -145,13 +145,6 @@ directories use mode `0700` and files use mode `0600`; Windows uses
 inheritance-disabled access-control entries limited to the current user and the
 Windows system account.
 
-## Development
-
-```text
-npm ci
-npm run verify
-```
-
 The package is licensed under the PolyForm Shield License 1.0.0. Paid service
 access is enforced by TeamClaws servers, not by the client license.
 
