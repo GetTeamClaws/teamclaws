@@ -21,6 +21,7 @@ import {
   isObject,
   normalizeUuid,
   parseVerifiedWorkspace,
+  parseVerifiedDevice,
   requireHttpsUrl,
   requireInteger,
   requireString,
@@ -347,6 +348,61 @@ export class ExternalChatClient {
     );
   }
 
+  async list(target: PairingTarget, signal?: AbortSignal): Promise<number> {
+    const credential = await this.store.findWorkspace(target);
+    if (!credential)
+      throw new TeamClawsError(
+        "re_pair_required",
+        "No saved pairing was found for this workspace. Pair it first.",
+        { exitCode: 3 },
+      );
+    const response = await this.request(
+      `${credential.origin}/teamclaws-admin/api/device-pairings/me/`,
+      bearer(credential),
+      {},
+      [200],
+      signal,
+    );
+    parseVerifiedDevice(response.body, credential.device_id);
+    requirePairingScopes(response.body);
+    this.output.chatSessionsList(
+      credential,
+      await this.store.listConversations(credential),
+    );
+    return 0;
+  }
+
+  private async record(
+    context: ExternalChatContext,
+    state: RequestState,
+    responseCursor: number,
+  ): Promise<void> {
+    try {
+      await this.store.upsertConversation(context.credential, {
+        server_id: context.credential.server_id,
+        origin: context.credential.origin,
+        device_id: context.credential.device_id,
+        session_id: state.sessionId,
+        request_id: state.requestId,
+        owner_conversation_url: state.ownerUrl,
+        revision: state.revision,
+        response_cursor: responseCursor,
+        updated_at: new Date(this.now()).toISOString(),
+      });
+    } catch (error) {
+      // The remote operation already happened. Preserve its safe references even
+      // if local storage is unavailable; never replay the mutation.
+      this.output.chatReferenceRecovery(
+        state.sessionId,
+        state.requestId,
+        state.ownerUrl,
+        state.revision,
+        responseCursor,
+      );
+      throw error;
+    }
+  }
+
   private async context(
     target: PairingTarget,
     signal?: AbortSignal,
@@ -477,6 +533,7 @@ export class ExternalChatClient {
         state.responseCursor,
         ...seenMessageIds,
       );
+      await this.record(context, state, responseCursor);
       if (TERMINAL_STATUSES.has(state.status)) break;
       if (!PENDING_STATUSES.has(state.status)) throw invalidChatResponse();
       state = undefined;

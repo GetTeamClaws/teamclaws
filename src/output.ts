@@ -1,3 +1,4 @@
+import type { ConversationReference } from "./storage.js";
 import { OUTPUT_SCHEMA_VERSION } from "./constants.js";
 import type { TeamClawsError } from "./errors.js";
 import type {
@@ -275,6 +276,59 @@ export class Output {
         ? `Snapshot generated: ${generatedAt}.\n`
         : "Generation time is not supplied by the capabilities endpoint.\n",
     );
+  }
+
+  chatSessionsList(
+    workspace: { server_id: string; origin: string },
+    records: ConversationReference[],
+  ): void {
+    const sessions = records.map((record) => ({
+      session_id: record.session_id,
+      request_id: record.request_id,
+      owner_conversation_url: record.owner_conversation_url,
+      revision: record.revision,
+      response_cursor: record.response_cursor,
+      updated_at: record.updated_at,
+    }));
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "chat_sessions_list",
+      status: "success",
+      source: "local",
+      workspace: { server_id: workspace.server_id, origin: workspace.origin },
+      sessions,
+    });
+    if (!this.json) {
+      this.stdout.write(
+        sessions.length
+          ? "Locally recorded conversations:\n"
+          : "No locally recorded conversations for this workspace and pairing. This is not the workspace conversation inventory.\n",
+      );
+      for (const item of sessions)
+        this.stdout.write(
+          `${item.session_id} — request ${item.request_id} — revision ${item.revision}, response cursor ${item.response_cursor} — ${item.owner_conversation_url}\n`,
+        );
+    }
+  }
+
+  chatReferenceRecovery(
+    sessionId: string,
+    requestId: string,
+    ownerUrl: string,
+    revision: number,
+    responseCursor: number,
+  ): void {
+    this.externalChatEvent("chat_reference_recovery", {
+      session_id: sessionId,
+      request_id: requestId,
+      owner_conversation_url: ownerUrl,
+      revision,
+      response_cursor: responseCursor,
+    });
+    if (!this.json)
+      this.stdout.write(
+        `Retain session ${sessionId}, request ${requestId}, revision ${revision}, response cursor ${responseCursor}: ${ownerUrl}\n`,
+      );
   }
 
   chatCapabilities(selection: {

@@ -24,6 +24,9 @@ import type {
   WorkspaceCredential,
 } from "./types.js";
 import {
+  isObject,
+  requireHttpsUrl,
+  requireInteger,
   normalizeUuid,
   parseLoginCredential,
   parseStatusWorkspaceCredential,
@@ -35,6 +38,18 @@ const SYSTEM_SID = "S-1-5-18";
 const MAX_WORKSPACE_CREDENTIAL_FILES = 256;
 const UUID_CREDENTIAL_NAME =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\.json$/iu;
+
+export type ConversationReference = {
+  server_id: string;
+  origin: string;
+  device_id: string;
+  session_id: string;
+  request_id: string;
+  owner_conversation_url: string;
+  revision: number;
+  response_cursor: number;
+  updated_at: string;
+};
 
 export type FileStoreOptions = {
   root?: string;
@@ -137,6 +152,88 @@ export class CredentialStore {
         if (error.code !== "ENOENT") throw storageError();
       },
     );
+  }
+
+  private conversationDirectory(credential: StatusWorkspaceCredential): string {
+    return join(
+      this.root,
+      "chat-references",
+      normalizeUuid(credential.server_id),
+      normalizeUuid(credential.device_id),
+    );
+  }
+
+  private async checkConversationDirectory(
+    credential: StatusWorkspaceCredential,
+  ): Promise<void> {
+    const directory = this.conversationDirectory(credential);
+    for (const path of [
+      this.root,
+      join(this.root, "chat-references"),
+      dirname(directory),
+      directory,
+    ]) {
+      await this.assertPrivateDirectory(path);
+    }
+  }
+
+  async listConversations(
+    credential: StatusWorkspaceCredential,
+  ): Promise<ConversationReference[]> {
+    try {
+      const directory = this.conversationDirectory(credential);
+      try {
+        await this.checkConversationDirectory(credential);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+        throw error;
+      }
+      const records: ConversationReference[] = [];
+      for (const name of (await readdir(directory)).sort()) {
+        if (!UUID_CREDENTIAL_NAME.test(name)) continue;
+        const path = join(directory, name);
+        // A single reference is small; reject unexpectedly large local files.
+        if ((await lstat(path)).size > 16_384) throw conversationStorageError();
+        const value = await this.readJsonIfPresent(path);
+        if (value === undefined) continue;
+        const record = parseConversationReference(value, credential);
+        if (name !== `${record.session_id}.json`)
+          throw conversationStorageError();
+        records.push(record);
+      }
+      return records.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
+    } catch {
+      throw conversationStorageError();
+    }
+  }
+
+  async upsertConversation(
+    credential: StatusWorkspaceCredential,
+    reference: ConversationReference,
+  ): Promise<void> {
+    try {
+      const record = parseConversationReference(reference, credential);
+      const directory = this.conversationDirectory(credential);
+      await this.ensurePrivateDirectory(directory);
+      const path = join(directory, `${record.session_id}.json`);
+      const existing = await this.readJsonIfPresent(path);
+      if (existing !== undefined) {
+        const prior = parseConversationReference(existing, credential);
+        if (prior.session_id !== record.session_id)
+          throw conversationStorageError();
+        // Resuming an earlier cursor must not regress this request's saved progress.
+        if (prior.request_id === record.request_id) {
+          record.revision = Math.max(prior.revision, record.revision);
+          record.response_cursor = Math.max(
+            prior.response_cursor,
+            record.response_cursor,
+          );
+        }
+      }
+      await this.writePrivateJson(path, record);
+    } catch {
+      throw conversationStorageError();
+    }
   }
 
   private async readJsonIfPresent(path: string): Promise<unknown | undefined> {
@@ -422,6 +519,56 @@ function storageError(): TeamClawsError {
   return new TeamClawsError(
     "credential_storage_failed",
     "TeamClaws could not protect the local credential file.",
+    { exitCode: 9 },
+  );
+}
+
+function parseConversationReference(
+  value: unknown,
+  credential: StatusWorkspaceCredential,
+): ConversationReference {
+  if (!isObject(value)) throw conversationStorageError();
+  const server = normalizeUuid(value.server_id);
+  const device = normalizeUuid(value.device_id);
+  const origin = requireHttpsUrl(value.origin, "workspace origin").origin;
+  const owner = requireHttpsUrl(
+    value.owner_conversation_url,
+    "conversation URL",
+  );
+  if (
+    server !== normalizeUuid(credential.server_id) ||
+    device !== normalizeUuid(credential.device_id) ||
+    origin !== credential.origin ||
+    value.origin !== origin ||
+    owner.origin !== origin ||
+    !owner.pathname.startsWith("/teamclaws-admin/") ||
+    typeof value.updated_at !== "string" ||
+    !Number.isFinite(Date.parse(value.updated_at)) ||
+    new Date(value.updated_at).toISOString() !== value.updated_at
+  )
+    throw conversationStorageError();
+  return {
+    server_id: server,
+    origin,
+    device_id: device,
+    session_id: normalizeUuid(value.session_id),
+    request_id: normalizeUuid(value.request_id),
+    owner_conversation_url: owner.toString(),
+    revision: requireInteger(value.revision, "revision", 1, 2 ** 31 - 1),
+    response_cursor: requireInteger(
+      value.response_cursor,
+      "response cursor",
+      0,
+      Number.MAX_SAFE_INTEGER,
+    ),
+    updated_at: value.updated_at,
+  };
+}
+
+function conversationStorageError(): TeamClawsError {
+  return new TeamClawsError(
+    "chat_reference_storage_failed",
+    "The local conversation references could not be read or saved safely. Retain any returned session/request identifiers; do not resend the message automatically.",
     { exitCode: 9 },
   );
 }

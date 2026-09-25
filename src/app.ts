@@ -16,6 +16,7 @@ import { PairingClient } from "./pairing.js";
 import { runShell, shellFetch } from "./shell.js";
 import { CredentialStore } from "./storage.js";
 import type { PairingTarget, ServerSummary } from "./types.js";
+import { installRelease, type ReleaseCheck, type Release } from "./update.js";
 import { parsePairingTarget } from "./validation.js";
 
 export type AppIo = {
@@ -30,6 +31,8 @@ export type AppDependencies = {
   store?: CredentialStore;
   openBrowser?: (url: string) => Promise<boolean>;
   io?: AppIo;
+  releaseCheck?: ReleaseCheck;
+  installer?: (release: Release, signal?: AbortSignal) => Promise<void>;
 };
 
 export async function run(
@@ -61,6 +64,41 @@ export async function run(
   if (parsed.action === "version") {
     stdout.write(`${PACKAGE_VERSION}\n`);
     return 0;
+  }
+  if (parsed.action === "update") {
+    const checked = dependencies.releaseCheck;
+    let status: string;
+    let message: string;
+    let code = 0;
+    if (!checked || checked.status === "unavailable") {
+      status = "unavailable";
+      message =
+        "Could not verify an official stable release. No update was installed. Try teamclaws update again later.";
+      code = 1;
+    } else if (checked.status === "current") {
+      status = "current";
+      message = "No newer official stable TeamClaws release is available.";
+    } else {
+      try {
+        await (dependencies.installer ?? installRelease)(
+          checked.release,
+          signal,
+        );
+        status = "updated";
+        message = `Updated TeamClaws to ${checked.release.version}.`;
+      } catch {
+        status = "failed";
+        message =
+          "Update failed. Requires the active npm global installation with write permission and npm beside Node. Local, linked, npx, and managed installs must use their original package manager. No privilege elevation was attempted. Check the installed version before retrying.";
+        code = 1;
+      }
+    }
+    if (parsed.json)
+      stdout.write(
+        `${JSON.stringify({ schema_version: 1, event: "update_result", status, message })}\n`,
+      );
+    else (code ? stderr : stdout).write(`${message}\n`);
+    return code;
   }
   const store = dependencies.store ?? new CredentialStore();
   const auth = new AuthService({
@@ -153,6 +191,11 @@ export async function run(
         );
         return status === "paired" ? 0 : status === "unreachable" ? 5 : 1;
       }
+      case "chat_list":
+        return await externalChat.list(
+          parsePairingTarget(parsed.target),
+          signal,
+        );
       case "chat_capabilities":
         return await externalChat.capabilities(
           parsePairingTarget(parsed.target),
@@ -176,6 +219,7 @@ type ParsedArguments =
   | { action: "shell"; json: boolean; target: string; command: string }
   | { action: "help"; json: boolean }
   | { action: "version"; json: boolean }
+  | { action: "update"; json: boolean }
   | {
       action: "login";
       json: boolean;
@@ -187,7 +231,7 @@ type ParsedArguments =
     }
   | { action: "pair"; json: boolean; target?: string; noOpen: boolean }
   | { action: "pair_status"; json: boolean; target: string }
-  | { action: "chat_capabilities"; json: boolean; target: string }
+  | { action: "chat_capabilities" | "chat_list"; json: boolean; target: string }
   | { action: "chat_start"; json: boolean; options: ChatStartOptions }
   | { action: "chat_send"; json: boolean; options: ChatSendOptions }
   | { action: "chat_watch"; json: boolean; options: ChatWatchOptions };
@@ -214,6 +258,8 @@ export function parseArguments(arguments_: string[]): ParsedArguments {
     return { action: "help", json };
   if (args[0] === "--version" || args[0] === "-v")
     return { action: "version", json };
+  if (args[0] === "update" && args.length === 1)
+    return { action: "update", json };
   if (args[0] === "login") {
     if (args.length === 1) return { action: "login", json };
     if (args.length === 2 && !args[1]!.startsWith("-")) {
@@ -248,6 +294,9 @@ export function parseArguments(arguments_: string[]): ParsedArguments {
     }
     const target = positional[0];
     return { action: "pair", json, ...(target ? { target } : {}), noOpen };
+  }
+  if (args[0] === "chat" && args[1] === "list" && args.length === 3) {
+    return { action: "chat_list", json, target: requiredPositional(args, 2) };
   }
   if (args[0] === "chat" && args[1] === "capabilities" && args.length === 3) {
     return { action: "chat_capabilities", json, target: args[2]! };
@@ -463,5 +512,5 @@ function usageError(): TeamClawsError {
 }
 
 export function helpText(): string {
-  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws login [email] [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--json]\n  teamclaws servers list [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
+  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws login [email] [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--json]\n  teamclaws servers list [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
 }

@@ -180,3 +180,78 @@ existing refresh endpoint does not supply a generation timestamp. Chat requests
 still validate current authorization and selection; explicitly refresh if a
 selection is no longer available. No chat mutation is automatically replayed by
 this command. Pair status retains its single workspace verification and terminal behavior.
+
+## CLI updates
+
+Every command invocation checks `https://registry.npmjs.org/teamclaws` before
+command dispatch, including help and version. The check has a 1.5-second total
+deadline, a 2 MiB metadata limit, no redirects, no credentials, and no persistent
+cache. Registry failure or malformed metadata silently leaves ordinary commands
+available. Nothing is installed automatically.
+
+When a newer published stable `latest` release exists, stderr receives:
+
+```text
+Version 1.2.0 Available starting on 09/12/2026. Use command teamclaws update to update as soon as possible.
+```
+
+With `--json`, stderr receives one newline-delimited `update_available` JSON
+object containing `version`, `published_at`, `available_date`, `update_command`,
+and `message`. Agents should capture both streams. Existing stdout results,
+shell result objects, event streams, help/version text, and command exit codes
+retain their contracts. Raw shell stderr follows the advisory unchanged; callers
+requiring only remote stderr must separate the first advisory line. Long-running
+commands receive the notice once at startup, not on every streamed event.
+
+Run `teamclaws update` (or `teamclaws update --json`) explicitly to install.
+The command does not require login. It supports only a verified npm global
+installation matching the running package and npm's reported global prefix.
+Local, linked, npx, other package-manager installations, mismatched prefixes,
+and layouts without npm beside the running Node executable are unsupported;
+update those through their original package manager. No prefix is guessed and
+no automatic privilege elevation occurs.
+
+The installer uses Node to launch npm's JavaScript entrypoint with literal
+arguments on Windows, Linux, and macOS. It pins the official registry, package,
+and checked version, disables lifecycle scripts, and verifies the installed
+package version afterward. It never accesses the `.teamclaws` credential tree:
+login and workspace credentials remain separate from the installed package.
+Installation failure returns nonzero; an interrupted npm install may require
+repair through npm. The updater does not promise transactional rollback.
+
+Release selection uses `dist-tags.latest`, the matching `versions` manifest,
+and `time[version]` in official registry metadata. Prereleases, deprecated
+releases, missing publication records, future timestamps, and invalid package
+or tarball identity are rejected. The displayed date is the publication date in
+UTC, formatted `MM/DD/YYYY`, not the metadata modification date or a private
+commit date. Semantic precedence ignores build metadata and never downgrades
+an equal/newer candidate; a stable version supersedes its same-core prerelease.
+See [npm distribution tags](https://docs.npmjs.com/cli/v11/commands/npm-dist-tag/),
+[npm publication time fields](https://docs.npmjs.com/cli/v11/commands/npm-view/),
+[Semantic Versioning](https://semver.org/), and
+[npm installation layouts](https://docs.npmjs.com/cli/v11/configuring-npm/folders/).
+
+## Find conversations started on this computer
+
+Run `teamclaws chat list <target> --json` to recover locally recorded session and
+latest request identifiers for a verified pairing. Login and direct pairing
+verification are required; listing does not fetch capabilities, create a chat,
+send a message, poll a request, or call a remote history endpoint.
+
+The `chat_sessions_list` event has `status: success`, `source: local`, the
+selected `workspace`, and `sessions` containing `session_id`, `request_id`,
+`owner_conversation_url`, `revision`, `response_cursor`, and `updated_at`.
+Use the existing send/watch commands with those identifiers. For watch, pass
+revision as `--known-revision` and cursor as `--after-response-message-id`.
+Every subsequent remote operation retains its normal authorization checks.
+
+References are saved separately from credentials in private files under
+`~/.teamclaws/chat-references/`, partitioned by workspace and paired device.
+No message text, tokens, headers, or transcripts are saved. Empty results mean
+no locally recorded conversations; other computers' chats and old unsaved
+references are not discoverable. Device identity is not included in list output.
+
+If recording fails after a remote response, `chat_reference_recovery` preserves
+the validated identifiers and cursors, followed by `chat_reference_storage_failed`
+(exit 9). Retain those identifiers and resume with watch; never automatically
+repeat the remote mutation. Existing login and pairing credentials are unchanged.

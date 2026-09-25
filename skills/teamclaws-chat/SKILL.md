@@ -52,6 +52,32 @@ task because approval is pending. Retain the existing request identifiers and
 follow the task's existing monitoring/resume instructions, using `chat watch`
 when resuming an already-created chat request.
 
+## Find locally recorded conversations
+
+If session/request identifiers were lost, first run:
+
+```text
+teamclaws chat list <target> --json
+```
+
+This verifies login and the selected pairing, then emits `chat_sessions_list`
+with `source: local` and `sessions`. Records include `session_id`, latest saved
+`request_id`, `owner_conversation_url`, `revision`, and `response_cursor`.
+Use revision as `--known-revision` and cursor as `--after-response-message-id`
+when resuming watch. Select the intended conversation before sending a new turn.
+
+Only conversations recorded on this computer for the current paired device are
+listed. Empty results mean no locally recorded conversations, not no workspace
+conversations. Older unsaved IDs and chats created on other machines are not
+imported. The index stores references, never messages or credentials. It is not
+proof of authorization: send/watch still perform their normal checks. Do not
+create another chat or re-pair merely because the list is empty.
+
+On `chat_reference_storage_failed`, preserve identifiers from the
+`chat_reference_recovery` event (or its human-readable equivalent). A remote
+request may already have succeeded. Do not automatically resend it; use the
+returned identifiers with the existing watch command after resolving storage.
+
 ## Continue or resume
 
 To add a later turn to the same conversation:
