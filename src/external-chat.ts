@@ -387,7 +387,7 @@ export class ExternalChatClient {
         owner_conversation_url: state.ownerUrl,
         revision: state.revision,
         response_cursor: responseCursor,
-        updated_at: new Date(this.now()).toISOString(),
+        updated_at: new Date().toISOString(),
       });
     } catch (error) {
       // The remote operation already happened. Preserve its safe references even
