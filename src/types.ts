@@ -9,6 +9,7 @@ export type SafeUser = {
 export type ServerSummary = {
   server_id: string;
   alias: string;
+  description?: string;
   workspace_url: string;
   status: string;
   pairing_ready: boolean;

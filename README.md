@@ -51,10 +51,12 @@ Existing event names and schema version remain unchanged. The
 login keeps running. Signed-out `auth_status` includes the non-executing
 `login_command: "teamclaws login --json"`; status never starts device authorization.
 
-`servers list` requests `GET /api/cli/v1/servers/?include_inventory=1`. Updated
+`servers list` requests `GET /api/cli/v1/servers/?include_inventory=1&include_description=1`. Updated
 brokers return `servers` and `workspace_count`: the count of all non-deleted
 owned and eligible shared workspaces, including those without a hostname yet.
 Individual server entries retain aliases, stable IDs, status and `pairing_ready`.
+When supported, they also include the server description. Older brokers may
+omit descriptions; nonempty descriptions appear under each readable list entry.
 Older brokers may omit the count; the CLI reports it as null and never infers
 an empty account from an empty filtered list.
 

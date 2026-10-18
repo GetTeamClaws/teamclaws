@@ -144,6 +144,7 @@ export class Output {
         this.stdout.write(
           `${index + 1}. ${server.alias} — ${server.server_id} — ${server.workspace_url} — ${server.pairing_ready ? "ready to pair" : "not ready to pair"}\n`,
         );
+        if (server.description) this.stdout.write(`   ${server.description}\n`);
       });
     }
   }

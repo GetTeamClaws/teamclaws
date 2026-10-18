@@ -42,7 +42,7 @@ export class BrokerClient {
   ): Promise<WorkspaceInventory> {
     const response = await requestJson(
       this.fetcher,
-      `${API_BASE}servers/?include_inventory=1`,
+      `${API_BASE}servers/?include_inventory=1&include_description=1`,
       {
         headers: requestHeaders(accessToken),
         ...(signal ? { signal } : {}),

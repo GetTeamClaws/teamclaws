@@ -603,7 +603,7 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
     assertExactKeys(
       server,
       ["id", "alias", "workspace_url", "status", "pairing_ready"],
-      [],
+      ["description"],
       "server",
     );
     if (typeof server.pairing_ready !== "boolean") {
@@ -615,9 +615,23 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
         },
       );
     }
+    if (
+      server.description !== undefined &&
+      (typeof server.description !== "string" ||
+        server.description.length > 2_000)
+    ) {
+      throw new TeamClawsError(
+        "invalid_response",
+        "TeamClaws returned an invalid server description.",
+        { exitCode: 9 },
+      );
+    }
     return {
       server_id: normalizeUuid(server.id),
       alias: requireString(server.alias, "server alias", 200),
+      ...(typeof server.description === "string"
+        ? { description: server.description }
+        : {}),
       workspace_url: canonicalWorkspaceUrl(server.workspace_url),
       status: requireString(server.status, "server status", 40),
       pairing_ready: server.pairing_ready,
