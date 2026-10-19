@@ -603,7 +603,7 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
     assertExactKeys(
       server,
       ["id", "alias", "workspace_url", "status", "pairing_ready"],
-      ["description"],
+      ["description", "custom_alias", "can_edit_metadata"],
       "server",
     );
     if (typeof server.pairing_ready !== "boolean") {
@@ -617,12 +617,24 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
     }
     if (
       server.description !== undefined &&
-      (typeof server.description !== "string" ||
-        server.description.length > 2_000)
+      typeof server.description !== "string"
     ) {
       throw new TeamClawsError(
         "invalid_response",
         "TeamClaws returned an invalid server description.",
+        { exitCode: 9 },
+      );
+    }
+    if (
+      (server.custom_alias !== undefined &&
+        (typeof server.custom_alias !== "string" ||
+          [...server.custom_alias].length > 100)) ||
+      (server.can_edit_metadata !== undefined &&
+        typeof server.can_edit_metadata !== "boolean")
+    ) {
+      throw new TeamClawsError(
+        "invalid_response",
+        "TeamClaws returned invalid server editing permissions.",
         { exitCode: 9 },
       );
     }
@@ -631,6 +643,12 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
       alias: requireString(server.alias, "server alias", 200),
       ...(typeof server.description === "string"
         ? { description: server.description }
+        : {}),
+      ...(typeof server.custom_alias === "string"
+        ? { custom_alias: server.custom_alias }
+        : {}),
+      ...(typeof server.can_edit_metadata === "boolean"
+        ? { can_edit_metadata: server.can_edit_metadata }
         : {}),
       workspace_url: canonicalWorkspaceUrl(server.workspace_url),
       status: requireString(server.status, "server status", 40),

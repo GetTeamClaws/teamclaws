@@ -36,6 +36,15 @@ Run `teamclaws servers list --json`. Use only a successful `servers_list` event;
 errors are not empty inventories. Display aliases, retaining `server_id` for
 commands. Explain readiness separately from ownership.
 
+If discovery emits `server_metadata_prompt`, show its question and explain that
+the owner can always change the server's name and description later. Ask for the
+desired values if the user wants to edit them; run `teamclaws servers update
+<server-id> --name <text> --description <text> --json` only after their answer.
+Either flag may be omitted to keep that field unchanged. This question is
+remembered once per owner and server across devices, including a decline, so
+deliver it when received. Never offer this edit for a shared server whose
+`can_edit_metadata` is false, and never infer ownership from an alias or role.
+
 - `discovery_state: no_workspaces` means the broker confirmed zero workspaces
   accessible for pairing, including owned workspaces still being prepared.
   Direct the user to https://teamclaws.com/app/ to purchase a workspace, then

@@ -14,9 +14,18 @@ import { errorFromResponse, requestJson, type FetchLike } from "./http.js";
 import type {
   PairingTarget,
   PendingPairing,
+  ServerMetadata,
+  ServerMetadataUpdate,
   WorkspaceInventory,
 } from "./types.js";
-import { parsePendingPairing, parseWorkspaceInventory } from "./validation.js";
+import {
+  assertExactKeys,
+  isObject,
+  normalizeUuid,
+  parsePendingPairing,
+  parseWorkspaceInventory,
+  requireString,
+} from "./validation.js";
 
 export type BrokerOptions = {
   fetcher?: FetchLike;
@@ -42,7 +51,7 @@ export class BrokerClient {
   ): Promise<WorkspaceInventory> {
     const response = await requestJson(
       this.fetcher,
-      `${API_BASE}servers/?include_inventory=1&include_description=1`,
+      `${API_BASE}servers/?include_inventory=1&include_description=1&include_editable_metadata=1`,
       {
         headers: requestHeaders(accessToken),
         ...(signal ? { signal } : {}),
@@ -61,6 +70,75 @@ export class BrokerClient {
       throw errorFromResponse(response, "server_discovery_failed");
     }
     return parseWorkspaceInventory(response.body);
+  }
+
+  async updateServerMetadata(
+    accessToken: string,
+    serverId: string,
+    updates: ServerMetadataUpdate,
+    signal?: AbortSignal,
+  ): Promise<ServerMetadata> {
+    if (
+      Object.keys(updates).length === 0 ||
+      (updates.alias !== undefined && [...updates.alias.trim()].length > 100) ||
+      (updates.description !== undefined &&
+        [...updates.description.trim()].length > 2_000)
+    ) {
+      throw new TeamClawsError(
+        "invalid_server_metadata",
+        "Provide a name of 100 characters or fewer and/or a description of 2000 characters or fewer.",
+        { exitCode: 2 },
+      );
+    }
+    const id = normalizeUuid(serverId);
+    const response = await requestJson(
+      this.fetcher,
+      `${API_BASE}servers/${id}/metadata/`,
+      {
+        method: "POST",
+        headers: requestHeaders(accessToken),
+        body: updates,
+        ...(signal ? { signal } : {}),
+      },
+    );
+    if (response.status < 200 || response.status >= 300)
+      throw errorFromResponse(response, "server_metadata_update_failed");
+    if (!isObject(response.body)) throw invalidMetadataResponse();
+    assertExactKeys(response.body, ["server"], [], "server metadata response");
+    return editableServer(response.body.server, id);
+  }
+
+  async claimMetadataPrompt(
+    accessToken: string,
+    serverId: string,
+    signal?: AbortSignal,
+  ): Promise<{ should_prompt: boolean; server: ServerMetadata }> {
+    const id = normalizeUuid(serverId);
+    const response = await requestJson(
+      this.fetcher,
+      `${API_BASE}servers/${id}/metadata-prompt/claim/`,
+      {
+        method: "POST",
+        headers: requestHeaders(accessToken),
+        body: {},
+        ...(signal ? { signal } : {}),
+      },
+    );
+    if (response.status < 200 || response.status >= 300)
+      throw errorFromResponse(response, "server_metadata_prompt_failed");
+    if (!isObject(response.body)) throw invalidMetadataResponse();
+    assertExactKeys(
+      response.body,
+      ["should_prompt", "server"],
+      [],
+      "server metadata prompt response",
+    );
+    if (typeof response.body.should_prompt !== "boolean")
+      throw invalidMetadataResponse();
+    return {
+      should_prompt: response.body.should_prompt,
+      server: editableServer(response.body.server, id),
+    };
   }
 
   async startPairing(
@@ -102,6 +180,40 @@ export class BrokerClient {
     }
     return pending;
   }
+}
+
+function invalidMetadataResponse(): TeamClawsError {
+  return new TeamClawsError(
+    "invalid_response",
+    "TeamClaws returned invalid server metadata.",
+    { exitCode: 9 },
+  );
+}
+
+function editableServer(value: unknown, expectedId: string): ServerMetadata {
+  if (!isObject(value)) throw invalidMetadataResponse();
+  assertExactKeys(
+    value,
+    ["id", "alias", "description", "custom_alias", "can_edit_metadata"],
+    [],
+    "server metadata",
+  );
+  const id = normalizeUuid(value.id);
+  if (
+    id !== expectedId ||
+    value.can_edit_metadata !== true ||
+    typeof value.custom_alias !== "string" ||
+    [...value.custom_alias].length > 100 ||
+    typeof value.description !== "string"
+  )
+    throw invalidMetadataResponse();
+  return {
+    server_id: id,
+    alias: requireString(value.alias, "server alias", 200),
+    description: value.description,
+    custom_alias: value.custom_alias,
+    can_edit_metadata: true,
+  };
 }
 
 export function pairingStartRequest(

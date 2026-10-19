@@ -7,6 +7,7 @@ import type {
   ExternalChatHandoff,
   PairingStatus,
   SafeUser,
+  ServerMetadata,
   ServerSummary,
   WorkspaceCredential,
 } from "./types.js";
@@ -147,6 +148,36 @@ export class Output {
         if (server.description) this.stdout.write(`   ${server.description}\n`);
       });
     }
+  }
+
+  serverMetadataPrompt(server: ServerSummary): void {
+    const updateCommand = `teamclaws servers update ${server.server_id} --name "Your server name" --description "What this server is for"`;
+    const guidance = `You can always change the name and description later with: ${updateCommand}`;
+    const question =
+      "Would you like to set the server name and description now?";
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "server_metadata_prompt",
+      server,
+      question,
+      message: `Your server ${JSON.stringify(server.alias)} is missing a user-defined name or description. ${question} ${guidance}`,
+      update_command: updateCommand,
+    });
+    if (!this.json)
+      this.stdout.write(
+        `Your server ${JSON.stringify(server.alias)} is missing a user-defined name or description.\n${guidance}\n`,
+      );
+  }
+
+  serverMetadataUpdated(server: ServerMetadata): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "server_metadata_updated",
+      status: "success",
+      server,
+    });
+    if (!this.json)
+      this.stdout.write(`Updated server details for ${server.alias}.\n`);
   }
 
   pairingComplete(

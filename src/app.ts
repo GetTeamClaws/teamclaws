@@ -15,9 +15,13 @@ import { Output, type Writable } from "./output.js";
 import { PairingClient } from "./pairing.js";
 import { runShell, shellFetch } from "./shell.js";
 import { CredentialStore } from "./storage.js";
-import type { PairingTarget, ServerSummary } from "./types.js";
+import type {
+  PairingTarget,
+  ServerMetadataUpdate,
+  ServerSummary,
+} from "./types.js";
 import { installRelease, type ReleaseCheck, type Release } from "./update.js";
-import { parsePairingTarget } from "./validation.js";
+import { normalizeUuid, parsePairingTarget } from "./validation.js";
 
 export type AppIo = {
   stdout?: Writable;
@@ -161,7 +165,26 @@ export async function run(
       }
       case "servers_list": {
         const inventory = await broker.servers(token, signal);
+        await offerServerMetadata(
+          inventory.servers,
+          broker,
+          token,
+          parsed.json,
+          output,
+          dependencies.io,
+          signal,
+        );
         output.servers(inventory.servers, inventory.workspace_count);
+        return 0;
+      }
+      case "servers_update": {
+        const server = await broker.updateServerMetadata(
+          token,
+          parsed.serverId,
+          parsed.updates,
+          signal,
+        );
+        output.serverMetadataUpdated(server);
         return 0;
       }
       case "pair": {
@@ -216,6 +239,12 @@ export async function run(
 }
 
 type ParsedArguments =
+  | {
+      action: "servers_update";
+      json: boolean;
+      serverId: string;
+      updates: ServerMetadataUpdate;
+    }
   | { action: "shell"; json: boolean; target: string; command: string }
   | { action: "help"; json: boolean }
   | { action: "version"; json: boolean }
@@ -237,6 +266,29 @@ type ParsedArguments =
   | { action: "chat_watch"; json: boolean; options: ChatWatchOptions };
 
 export function parseArguments(arguments_: string[]): ParsedArguments {
+  if (arguments_[0] === "servers" && arguments_[1] === "update") {
+    const serverId = normalizeUuid(requiredPositional(arguments_, 2));
+    const updates: ServerMetadataUpdate = {};
+    let json = false;
+    for (let index = 3; index < arguments_.length; index += 1) {
+      const option = arguments_[index];
+      if (option === "--name" && updates.alias === undefined) {
+        const value = arguments_[++index];
+        if (value === undefined) throw usageError();
+        updates.alias = value;
+      } else if (
+        option === "--description" &&
+        updates.description === undefined
+      ) {
+        const value = arguments_[++index];
+        if (value === undefined) throw usageError();
+        updates.description = value;
+      } else if (option === "--json" && !json) json = true;
+      else throw usageError();
+    }
+    if (Object.keys(updates).length === 0) throw usageError();
+    return { action: "servers_update", serverId, updates, json };
+  }
   if (arguments_[0] === "shell") {
     const target = requiredPositional(arguments_, 1);
     let command: string | undefined;
@@ -444,6 +496,15 @@ async function discoverTarget(
   signal?: AbortSignal,
 ): Promise<PairingTarget> {
   const inventory = await broker.servers(token, signal);
+  await offerServerMetadata(
+    inventory.servers,
+    broker,
+    token,
+    json,
+    output,
+    io,
+    signal,
+  );
   const servers = inventory.servers.filter((server) => server.pairing_ready);
   if (servers.length === 0) {
     throw new TeamClawsError(
@@ -470,6 +531,69 @@ async function discoverTarget(
     io?.stdout ?? process.stdout,
   );
   return { server_id: selected.server_id };
+}
+
+async function offerServerMetadata(
+  servers: ServerSummary[],
+  broker: BrokerClient,
+  token: string,
+  json: boolean,
+  output: Output,
+  io?: AppIo,
+  signal?: AbortSignal,
+): Promise<void> {
+  const interactive =
+    io?.interactive ?? (process.stdin.isTTY && process.stdout.isTTY);
+  if (!json && !interactive) return;
+  for (const server of servers) {
+    if (
+      server.can_edit_metadata !== true ||
+      server.custom_alias === undefined ||
+      server.description === undefined ||
+      (server.custom_alias.trim() !== "" && server.description.trim() !== "")
+    )
+      continue;
+    const claimed = await broker.claimMetadataPrompt(
+      token,
+      server.server_id,
+      signal,
+    );
+    Object.assign(server, claimed.server);
+    if (!claimed.should_prompt) continue;
+    output.serverMetadataPrompt(server);
+    if (json) continue;
+    const terminal = createInterface({
+      input: io?.input ?? process.stdin,
+      output: (io?.stdout ?? process.stdout) as NodeJS.WritableStream,
+    });
+    try {
+      const answer = await terminal.question(
+        "Set the name and description now? [y/N] ",
+      );
+      if (!/^y(?:es)?$/iu.test(answer.trim())) continue;
+      const name = await terminal.question(
+        `Name (Enter to keep ${JSON.stringify(server.custom_alias || server.alias)}): `,
+      );
+      const description = await terminal.question(
+        "Description (Enter to keep the current description): ",
+      );
+      const updates: ServerMetadataUpdate = {};
+      if (name.trim()) updates.alias = name;
+      if (description.trim()) updates.description = description;
+      if (Object.keys(updates).length > 0) {
+        const updated = await broker.updateServerMetadata(
+          token,
+          server.server_id,
+          updates,
+          signal,
+        );
+        Object.assign(server, updated);
+        output.serverMetadataUpdated(updated);
+      }
+    } finally {
+      terminal.close();
+    }
+  }
 }
 
 async function promptForServer(
@@ -512,5 +636,5 @@ function usageError(): TeamClawsError {
 }
 
 export function helpText(): string {
-  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws login [email] [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--json]\n  teamclaws servers list [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
+  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws login [email] [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
 }

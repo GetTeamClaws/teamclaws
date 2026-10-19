@@ -51,12 +51,14 @@ Existing event names and schema version remain unchanged. The
 login keeps running. Signed-out `auth_status` includes the non-executing
 `login_command: "teamclaws login --json"`; status never starts device authorization.
 
-`servers list` requests `GET /api/cli/v1/servers/?include_inventory=1&include_description=1`. Updated
+`servers list` requests `GET /api/cli/v1/servers/?include_inventory=1&include_description=1&include_editable_metadata=1`. Updated
 brokers return `servers` and `workspace_count`: the count of all non-deleted
 owned and eligible shared workspaces, including those without a hostname yet.
 Individual server entries retain aliases, stable IDs, status and `pairing_ready`.
 When supported, they also include the server description. Older brokers may
 omit descriptions; nonempty descriptions appear under each readable list entry.
+The editing opt-in adds `custom_alias` (the owner's saved name, distinct from a
+fallback display name) and `can_edit_metadata`. Older brokers may omit these.
 Older brokers may omit the count; the CLI reports it as null and never infers
 an empty account from an empty filtered list.
 
@@ -68,6 +70,28 @@ remain error events. A verified empty account uses https://teamclaws.com/app/ to
 purchase a workspace. Existing owners whose machines are being prepared do not
 need another purchase. Targetless pairing requires explicit selection even for
 one result; agents present aliases and pass only user-selected stable IDs.
+
+Owners can edit their server's user-defined name and description:
+
+```text
+teamclaws servers update <server-id> --name "My server" --description "What this server is for"
+```
+
+Provide either flag or both. Omitted fields stay unchanged; an empty string
+clears a field. The name updates the server alias, preserving its system name
+and workspace address. Names are limited to 100 characters and new descriptions
+to 2000. The API enforces ownership; shared access, staff, and superuser roles
+do not grant editing rights to someone else's server.
+
+When `servers list` or targetless pairing first discovers an owned server with
+no user-defined name or description, the CLI asks once whether to set them and
+explains the command to edit them later. This prompt is remembered per owner and
+server across devices, including a decline. In `--json` mode, the CLI emits a
+`server_metadata_prompt` event for the agent to show the user, followed by the
+normal result. Agents must ask the question and wait for the user's answer
+before running the edit command. Plain-text commands without an interactive
+terminal do not consume the prompt. The backend atomically claims the prompt;
+a crash after that claim may consume it before it is displayed.
 
 ## Commands
 

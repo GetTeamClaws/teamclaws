@@ -10,9 +10,21 @@ export type ServerSummary = {
   server_id: string;
   alias: string;
   description?: string;
+  custom_alias?: string;
+  can_edit_metadata?: boolean;
   workspace_url: string;
   status: string;
   pairing_ready: boolean;
+};
+
+export type ServerMetadataUpdate = { alias?: string; description?: string };
+
+export type ServerMetadata = {
+  server_id: string;
+  alias: string;
+  description: string;
+  custom_alias: string;
+  can_edit_metadata: true;
 };
 
 export type WorkspaceInventory = {
