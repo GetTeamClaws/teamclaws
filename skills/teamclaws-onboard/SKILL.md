@@ -33,8 +33,10 @@ failures; report the actual result without claiming success.
 ## Choose workspaces
 
 Run `teamclaws servers list --json`. Use only a successful `servers_list` event;
-errors are not empty inventories. Display aliases, retaining `server_id` for
-commands. Explain readiness separately from ownership.
+errors are not empty inventories. Show each server's display name (`alias`) and
+returned `description` to the user, retaining `server_id` for commands. If a
+description is empty or absent, say "No description set." Explain readiness
+separately from ownership.
 
 If discovery emits `server_metadata_prompt`, show its question and explain that
 the owner can always change the server's name and description later. Ask for the
@@ -55,10 +57,11 @@ deliver it when received. Never offer this edit for a shared server whose
   list does not prove an empty account. Ask the user to check their workspaces at
   https://teamclaws.com/app/; only if they confirm they have none, direct them to
   purchase there. Do not claim inventory support is deployed from local code alone.
-- With one pairing-ready workspace, name its alias and ask, “Would you like to
-  pair with **[alias]** now?” Never automatically pair it.
-- With several, list aliases and ask, “Would you like to pair with any of these
-  now?” If aliases repeat, distinguish them using their workspace addresses.
+- With one pairing-ready workspace, show its alias and description and ask,
+  “Would you like to pair with **[alias]** now?” Never automatically pair it.
+- With several, list each alias and description and ask, “Would you like to pair
+  with any of these now?” If aliases repeat, distinguish them using their
+  workspace addresses.
 
 For each selected workspace, follow [teamclaws-pair](../teamclaws-pair/SKILL.md)
 with its stable identifier. A prior explicit selection already authorizes that

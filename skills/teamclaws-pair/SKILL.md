@@ -55,9 +55,11 @@ Use `--no-open` only when automatic browser opening is undesirable. The
 `pairing_browser_required` event still provides the safe approval address.
 
 When no selected stable identifier is known, run `teamclaws servers list --json`,
-show aliases and readiness, and ask which workspace the user wants to pair—even
-when only one is available. Pass the selected `server_id`; aliases are display
-labels, not unique command targets. Targetless `teamclaws pair --json` returns
+show each server's display name (`alias`), returned `description`, and readiness,
+and ask which workspace the user wants to pair—even when only one is available.
+If a description is empty or absent, say "No description set." Pass the selected
+`server_id`; aliases are display labels, not unique command targets.
+Targetless `teamclaws pair --json` returns
 `server_selection_required` for any nonempty pairing-ready list and never
 creates approval automatically. Interactive targetless pairing also requires a
 selection. An empty or not-ready list is not proof that the account owns no
