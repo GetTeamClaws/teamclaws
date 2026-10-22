@@ -1,5 +1,5 @@
 export const PACKAGE_NAME = "teamclaws";
-export const PACKAGE_VERSION = "1.0.4";
+export const PACKAGE_VERSION = "2.0.0";
 export const CLIENT_NAME = "teamclaws-cli";
 export const CONTRACT_VERSION = 1;
 export const OUTPUT_SCHEMA_VERSION = 1;
@@ -7,6 +7,7 @@ export const OUTPUT_SCHEMA_VERSION = 1;
 export const TEAMCLAWS_ORIGIN = "https://www.teamclaws.com";
 export const API_RESOURCE = `${TEAMCLAWS_ORIGIN}/api/cli/v1`;
 export const API_BASE = `${API_RESOURCE}/`;
+export const API_V2_BASE = `${TEAMCLAWS_ORIGIN}/api/cli/v2/`;
 export const OAUTH_CLIENT_ID = "teamclaws-cli";
 export const OAUTH_DEVICE_AUTHORIZATION_URL = `${TEAMCLAWS_ORIGIN}/o/device-authorization/`;
 export const OAUTH_TOKEN_URL = `${TEAMCLAWS_ORIGIN}/o/token/`;

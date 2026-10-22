@@ -16,6 +16,7 @@ npx teamclaws login --json
 npx teamclaws login owner@example.com --json
 npx teamclaws auth status --json
 npx teamclaws logout --json
+npx teamclaws logout --revoke --json
 ```
 
 Login uses OAuth 2.0 Device Authorization Grant against www.teamclaws.com. The
@@ -25,13 +26,15 @@ while the user signs in; do not restart it while awaiting approval. Confirm the
 returned account after `login_complete` and exit 0, not after opening a browser.
 Start without an email unless the user supplies one. Optional email is a bind
 sent to TeamClaws, not identity asserted by this process. Never transfer a
-model or harness token into this process. The command-line client stores its own
-protected login credential locally.
+model or harness token into this process. The client stores an authorization ID
+and protected local signing key; temporary OAuth tokens are discarded.
 
 Only treat the fixed structured events as safe. Never expose access tokens,
 refresh tokens, device codes, cookies, or authorization headers.
 
-Logout always removes the local command-line login credential. A
-`local_only_warning` status means local logout succeeded but remote revocation
-could not be confirmed. Completed Clawgate workspace credentials are not
-deleted by logout.
+Ordinary logout removes the local authorization reference. Use `--revoke` only
+when the user asks to revoke this CLI authorization at TeamClaws; the CLI waits
+for confirmation before removing its local reference. If remote revocation is
+uncertain, report that uncertainty and retain the local reference. Completed
+Clawgate workspace credentials are not deleted by logout, but old pairings
+without authorization binding require re-pairing.

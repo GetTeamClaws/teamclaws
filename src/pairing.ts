@@ -27,6 +27,10 @@ import {
   requireInteger,
 } from "./validation.js";
 import { openExternalBrowser } from "./browser.js";
+import {
+  TargetAuthorization,
+  requestTargetJson,
+} from "./target-authorization.js";
 
 export type PairingOptions = {
   fetcher?: FetchLike;
@@ -35,6 +39,7 @@ export type PairingOptions = {
   openBrowser?: (url: string) => Promise<boolean>;
   now?: () => number;
   wait?: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
+  authorization?: TargetAuthorization;
 };
 
 export class PairingClient {
@@ -47,6 +52,7 @@ export class PairingClient {
     milliseconds: number,
     signal?: AbortSignal,
   ) => Promise<void>;
+  private readonly authorization: TargetAuthorization;
 
   constructor(options: PairingOptions) {
     this.fetcher = options.fetcher ?? fetch;
@@ -55,6 +61,9 @@ export class PairingClient {
     this.openBrowser = options.openBrowser ?? openExternalBrowser;
     this.now = options.now ?? Date.now;
     this.wait = options.wait ?? waitFor;
+    this.authorization =
+      options.authorization ??
+      new TargetAuthorization(this.store, this.fetcher);
   }
 
   async status(
@@ -64,7 +73,9 @@ export class PairingClient {
     let credential;
     try {
       credential = await this.store.findWorkspace(target);
-    } catch {
+    } catch (error) {
+      if (error instanceof TeamClawsError && error.code === "re_pair_required")
+        throw error;
       this.output.pairingStatus("unreachable");
       return "unreachable";
     }
@@ -78,13 +89,13 @@ export class PairingClient {
       display_name: credential.display_name,
     };
     try {
-      const response = await requestJson(
+      const url = `${credential.origin}/teamclaws-admin/api/device-pairings/me/`;
+      const response = await requestTargetJson(
         this.fetcher,
-        `${credential.origin}/teamclaws-admin/api/device-pairings/me/`,
+        this.authorization,
+        url,
+        credential,
         {
-          headers: {
-            Authorization: `Bearer ${credential.device_id}:${credential.device_token}`,
-          },
           timeoutMs: PAIRING_STATUS_TIMEOUT_MS,
           ...(signal ? { signal } : {}),
         },
@@ -108,6 +119,11 @@ export class PairingClient {
       return "paired";
     } catch (error) {
       if (signal?.aborted) throw error;
+      if (
+        error instanceof TeamClawsError &&
+        !["network_error", "network_timeout"].includes(error.code)
+      )
+        throw error;
       this.output.pairingStatus("unreachable", workspace);
       return "unreachable";
     }
@@ -128,61 +144,66 @@ export class PairingClient {
     let credential: PairingCredential | undefined;
     try {
       credential = await this.poll(pending, signal);
+      const grant = await this.authorization.requireGrant();
+      if (
+        credential.pairing_id !== credential.device_id ||
+        credential.server_id !== pending.server_id ||
+        credential.origin !== pending.target.origin ||
+        credential.requester_sub !== grant.sub ||
+        credential.authorization_id !== grant.authorization_id ||
+        credential.machine_jkt !== grant.machine_key.jkt
+      )
+        throw verificationError();
       const initial: WorkspaceCredential = {
-        version: 1,
+        version: 2,
         server_id: pending.server_id,
         origin: pending.target.origin,
         display_name: deviceName,
         device_id: credential.device_id,
+        pairing_id: credential.pairing_id,
         device_token: credential.device_token,
+        requester_sub: credential.requester_sub,
+        authorization_id: credential.authorization_id,
+        machine_jkt: credential.machine_jkt,
         created_at: new Date(this.now()).toISOString(),
       };
-      await this.store.writeWorkspace(initial);
-      try {
-        const stored = await this.store.readWorkspace(pending.server_id);
-        if (!stored) throw verificationError();
-        const verification = await this.verify(pending, stored, signal);
-        const verified = {
-          ...stored,
-          display_name: verification.display_name,
-        };
-        await this.store.writeWorkspace(verified);
-        let snapshot: CapabilityInventory | null | undefined;
-        let generatedAt: string | null | undefined;
-        if (Object.hasOwn(credential, "external_chat_capabilities")) {
-          snapshot = null;
-          generatedAt = null;
-          try {
-            const timestamp =
-              credential.external_chat_capabilities_generated_at;
-            if (
-              typeof timestamp === "string" &&
-              /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|\+00:00)$/.test(
-                timestamp,
-              ) &&
-              Number.isFinite(Date.parse(timestamp))
-            ) {
-              snapshot = parseCapabilityInventory(
-                credential.external_chat_capabilities,
-              );
-              generatedAt = timestamp;
-            }
-          } catch {
-            // Optional inventory must not invalidate a successfully verified credential.
+      const verification = await this.verify(pending, initial, signal);
+      const verified = {
+        ...initial,
+        display_name: verification.display_name,
+      };
+      await this.store.writeWorkspace(verified);
+      let snapshot: CapabilityInventory | null | undefined;
+      let generatedAt: string | null | undefined;
+      if (Object.hasOwn(credential, "external_chat_capabilities")) {
+        snapshot = null;
+        generatedAt = null;
+        try {
+          const timestamp = credential.external_chat_capabilities_generated_at;
+          if (
+            typeof timestamp === "string" &&
+            /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|\+00:00)$/.test(
+              timestamp,
+            ) &&
+            Number.isFinite(Date.parse(timestamp))
+          ) {
+            snapshot = parseCapabilityInventory(
+              credential.external_chat_capabilities,
+            );
+            generatedAt = timestamp;
           }
+        } catch {
+          // Optional inventory must not invalidate a successfully verified credential.
         }
-        this.output.pairingComplete(
-          pending.server_id,
-          pending.target.origin,
-          verification.display_name,
-          verification.external_chat_handoff,
-          snapshot,
-          generatedAt,
-        );
-      } catch (error) {
-        await this.store.removeWorkspace(pending.server_id);
-        throw error;
       }
+      this.output.pairingComplete(
+        pending.server_id,
+        pending.target.origin,
+        verification.display_name,
+        verification.external_chat_handoff,
+        snapshot,
+        generatedAt,
+      );
     } catch (error) {
       if (signal?.aborted) {
         await this.cancel(pending).catch(() => undefined);
@@ -257,16 +278,16 @@ export class PairingClient {
     credential: WorkspaceCredential,
     signal?: AbortSignal,
   ): Promise<VerifiedWorkspace> {
-    const response = await requestJson(
+    const url = directTargetUrl(
+      pending.target,
+      pending.target.credential_verification_path,
+    );
+    const response = await requestTargetJson(
       this.fetcher,
-      directTargetUrl(
-        pending.target,
-        pending.target.credential_verification_path,
-      ),
+      this.authorization,
+      url,
+      credential,
       {
-        headers: {
-          Authorization: `Bearer ${credential.device_id}:${credential.device_token}`,
-        },
         ...(signal ? { signal } : {}),
       },
     );

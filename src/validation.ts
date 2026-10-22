@@ -398,6 +398,15 @@ export function parsePairingCredential(value: unknown): PairingCredential {
   return {
     device_id: normalizeUuid(value.device_id, "device identifier"),
     device_token: requireString(value.device_token, "device token", 8_192),
+    pairing_id: normalizeUuid(value.pairing_id, "pairing identifier"),
+    server_id: normalizeUuid(value.server_id, "server identifier"),
+    origin: canonicalWorkspaceOrigin(value.origin),
+    requester_sub: requireString(value.requester_sub, "requester subject", 255),
+    authorization_id: normalizeUuid(
+      value.authorization_id,
+      "authorization identifier",
+    ),
+    machine_jkt: requireThumbprint(value.machine_jkt),
     ...(Object.hasOwn(value, "external_chat_capabilities")
       ? {
           external_chat_capabilities: value.external_chat_capabilities,
@@ -540,11 +549,11 @@ export function parseSafeUserResponse(value: unknown): SafeUser {
   }
   assertExactKeys(
     value,
-    ["id", "email", "display_name", "expires_at", "token_expired"],
+    ["id", "email", "display_name", "authorization_id", "authorization_status"],
     [],
     "account response",
   );
-  if (value.token_expired !== false) {
+  if (value.authorization_status !== "active") {
     throw new TeamClawsError(
       "invalid_response",
       "TeamClaws returned an invalid account response.",
@@ -553,7 +562,7 @@ export function parseSafeUserResponse(value: unknown): SafeUser {
       },
     );
   }
-  requireIsoDate(value.expires_at, "access-token expiry");
+  normalizeUuid(value.authorization_id, "authorization identifier");
   return {
     id: normalizeUuid(value.id, "user identifier"),
     display_name: requireString(value.display_name, "display name", 200),
@@ -678,6 +687,7 @@ export function parseLoginCredential(value: unknown): LoginCredential {
 
 export function parseWorkspaceCredential(value: unknown): WorkspaceCredential {
   if (!isObject(value)) throw invalidCredentialFile();
+  if (value.version === 1) throw legacyPairingError();
   assertExactKeys(
     value,
     [
@@ -686,20 +696,31 @@ export function parseWorkspaceCredential(value: unknown): WorkspaceCredential {
       "origin",
       "display_name",
       "device_id",
+      "pairing_id",
       "device_token",
+      "requester_sub",
+      "authorization_id",
+      "machine_jkt",
       "created_at",
     ],
     [],
     "workspace credential file",
   );
-  if (value.version !== 1) throw invalidCredentialFile();
+  if (value.version !== 2) throw invalidCredentialFile();
   return {
-    version: 1,
+    version: 2,
     server_id: normalizeUuid(value.server_id),
     origin: canonicalWorkspaceOrigin(value.origin),
     display_name: requireString(value.display_name, "display name", 120),
     device_id: normalizeUuid(value.device_id, "device identifier"),
+    pairing_id: normalizeUuid(value.pairing_id, "pairing identifier"),
     device_token: requireSecret(value.device_token),
+    requester_sub: requireString(value.requester_sub, "requester subject", 255),
+    authorization_id: normalizeUuid(
+      value.authorization_id,
+      "authorization identifier",
+    ),
+    machine_jkt: requireThumbprint(value.machine_jkt),
     created_at: requireIsoDate(value.created_at, "credential creation date"),
   };
 }
@@ -708,12 +729,14 @@ export function parseStatusWorkspaceCredential(
   value: unknown,
   expectedServerId: string,
 ): StatusWorkspaceCredential {
-  if (!isObject(value) || value.version !== 1) throw invalidCredentialFile();
+  if (!isObject(value)) throw invalidCredentialFile();
+  if (value.version === 1) throw legacyPairingError();
+  if (value.version !== 2) throw invalidCredentialFile();
   const serverId = normalizeUuid(value.server_id);
   if (serverId !== normalizeUuid(expectedServerId))
     throw invalidCredentialFile();
   return {
-    version: 1,
+    version: 2,
     server_id: serverId,
     origin: canonicalWorkspaceOrigin(value.origin),
     display_name:
@@ -721,8 +744,29 @@ export function parseStatusWorkspaceCredential(
         ? requireString(value.display_name, "display name", 120)
         : "Paired device",
     device_id: normalizeUuid(value.device_id, "device identifier"),
+    pairing_id: normalizeUuid(value.pairing_id, "pairing identifier"),
     device_token: requireSecret(value.device_token),
+    requester_sub: requireString(value.requester_sub, "requester subject", 255),
+    authorization_id: normalizeUuid(
+      value.authorization_id,
+      "authorization identifier",
+    ),
+    machine_jkt: requireThumbprint(value.machine_jkt),
   };
+}
+
+function requireThumbprint(value: unknown): string {
+  if (typeof value !== "string" || !/^[A-Za-z0-9_-]{43}$/u.test(value))
+    throw invalidCredentialFile();
+  return value;
+}
+
+function legacyPairingError(): TeamClawsError {
+  return new TeamClawsError(
+    "re_pair_required",
+    "This saved pairing predates bound CLI authorization. Pair this workspace again.",
+    { exitCode: 3 },
+  );
 }
 
 function requireSecret(value: unknown): string {

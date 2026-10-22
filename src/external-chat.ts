@@ -4,13 +4,16 @@ import { PACKAGE_VERSION } from "./constants.js";
 import { TeamClawsError } from "./errors.js";
 import {
   errorFromResponse,
-  requestJson,
   type FetchLike,
   type JsonRequestOptions,
   type JsonResponse,
 } from "./http.js";
 import type { Output } from "./output.js";
 import type { CredentialStore } from "./storage.js";
+import {
+  TargetAuthorization,
+  requestTargetJson,
+} from "./target-authorization.js";
 import type {
   CapabilityInventory,
   ExternalChatHandoff,
@@ -100,7 +103,6 @@ type Capabilities = {
 
 type ExternalChatContext = {
   credential: StatusWorkspaceCredential;
-  authorization: string;
   capabilities: Capabilities;
 };
 
@@ -127,6 +129,7 @@ export type ExternalChatClientOptions = {
   store: CredentialStore;
   output: Output;
   wait?: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
+  authorization?: TargetAuthorization;
 };
 
 export class ExternalChatClient {
@@ -134,6 +137,7 @@ export class ExternalChatClient {
   private readonly now: () => number;
   private readonly store: CredentialStore;
   private readonly output: Output;
+  private readonly authorization: TargetAuthorization;
   private readonly wait: (
     milliseconds: number,
     signal?: AbortSignal,
@@ -144,6 +148,9 @@ export class ExternalChatClient {
     this.now = options.now ?? (() => performance.now());
     this.store = options.store;
     this.output = options.output;
+    this.authorization =
+      options.authorization ??
+      new TargetAuthorization(this.store, this.fetcher);
     this.wait = options.wait ?? waitFor;
   }
 
@@ -197,12 +204,14 @@ export class ExternalChatClient {
         ? AbortSignal.any([timeout, signal])
         : timeout;
       try {
-        const response = await requestJson(
+        const url = `${credential.origin}/teamclaws-admin/api/device-chat/v1/capabilities/`;
+        const response = await requestTargetJson(
           this.fetcher,
-          `${credential.origin}/teamclaws-admin/api/device-chat/v1/capabilities/`,
+          this.authorization,
+          url,
+          credential,
           {
             headers: {
-              Authorization: bearer(credential),
               "User-Agent": `TeamClaws-CLI/${PACKAGE_VERSION}`,
             },
             timeoutMs,
@@ -274,7 +283,7 @@ export class ExternalChatClient {
     const clientRequestId = validUuid(options.clientRequestId ?? randomUUID());
     const response = await this.request(
       `${context.credential.origin}/teamclaws-admin/api/device-chat/v1/sessions/`,
-      context.authorization,
+      context.credential,
       {
         method: "POST",
         body: {
@@ -315,7 +324,7 @@ export class ExternalChatClient {
     const clientRequestId = validUuid(options.clientRequestId ?? randomUUID());
     const response = await this.request(
       `${context.credential.origin}/teamclaws-admin/api/device-chat/v1/sessions/${sessionId}/messages/create/`,
-      context.authorization,
+      context.credential,
       {
         method: "POST",
         body: { client_request_id: clientRequestId, body_text: message },
@@ -358,7 +367,7 @@ export class ExternalChatClient {
       );
     const response = await this.request(
       `${credential.origin}/teamclaws-admin/api/device-pairings/me/`,
-      bearer(credential),
+      credential,
       {},
       [200],
       signal,
@@ -416,10 +425,9 @@ export class ExternalChatClient {
         { exitCode: 3 },
       );
     }
-    const authorization = bearer(credential);
     const verifiedResponse = await this.request(
       `${credential.origin}/teamclaws-admin/api/device-pairings/me/`,
-      authorization,
+      credential,
       {},
       [200],
       signal,
@@ -435,7 +443,6 @@ export class ExternalChatClient {
       const result = await this.listInventory(target, signal, credential);
       return {
         credential,
-        authorization,
         capabilities: parseCapabilities(
           result.external_chat_capabilities,
           true,
@@ -444,14 +451,13 @@ export class ExternalChatClient {
     }
     const capabilityResponse = await this.request(
       new URL(handoff.capabilities_url, `${credential.origin}/`).toString(),
-      authorization,
+      credential,
       {},
       [200],
       signal,
     );
     return {
       credential,
-      authorization,
       capabilities: parseCapabilities(capabilityResponse.body),
     };
   }
@@ -477,7 +483,7 @@ export class ExternalChatClient {
         });
         const response = await this.request(
           `${context.credential.origin}/teamclaws-admin/api/device-chat/v1/requests/${current.requestId}/?${query.toString()}`,
-          context.authorization,
+          context.credential,
           {},
           [200],
           signal,
@@ -571,24 +577,33 @@ export class ExternalChatClient {
 
   private async request(
     url: string,
-    authorization: string,
+    credential: StatusWorkspaceCredential,
     options: JsonRequestOptions,
     expected: number[],
     signal?: AbortSignal,
   ): Promise<JsonResponse> {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       try {
-        const response = await requestJson(this.fetcher, url, {
-          ...options,
-          headers: {
-            ...options.headers,
-            Authorization: authorization,
-            "User-Agent": `TeamClaws-CLI/${PACKAGE_VERSION}`,
+        const response = await requestTargetJson(
+          this.fetcher,
+          this.authorization,
+          url,
+          credential,
+          {
+            ...options,
+            headers: {
+              ...options.headers,
+              "User-Agent": `TeamClaws-CLI/${PACKAGE_VERSION}`,
+            },
+            ...(signal ? { signal } : {}),
           },
-          ...(signal ? { signal } : {}),
-        });
+        );
         if (expected.includes(response.status)) return response;
-        if (response.status === 429 && attempt < 2) {
+        if (
+          options.method !== "POST" &&
+          response.status === 429 &&
+          attempt < 2
+        ) {
           await this.wait(retryAfter(response) * 1_000, signal);
           continue;
         }
@@ -597,6 +612,7 @@ export class ExternalChatClient {
         if (
           error instanceof TeamClawsError &&
           error.retryable &&
+          options.method !== "POST" &&
           attempt < 2 &&
           !signal?.aborted
         ) {
@@ -612,10 +628,6 @@ export class ExternalChatClient {
       { exitCode: 5 },
     );
   }
-}
-
-function bearer(credential: StatusWorkspaceCredential): string {
-  return `Bearer ${credential.device_id}:${credential.device_token}`;
 }
 
 function requireReadyHandoff(

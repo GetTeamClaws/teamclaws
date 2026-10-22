@@ -15,6 +15,7 @@ import { Output, type Writable } from "./output.js";
 import { PairingClient } from "./pairing.js";
 import { runShell, shellFetch } from "./shell.js";
 import { CredentialStore } from "./storage.js";
+import { TargetAuthorization } from "./target-authorization.js";
 import type {
   PairingTarget,
   ServerMetadataUpdate,
@@ -105,6 +106,10 @@ export async function run(
     return code;
   }
   const store = dependencies.store ?? new CredentialStore();
+  const targetAuthorization = new TargetAuthorization(
+    store,
+    dependencies.fetcher,
+  );
   const auth = new AuthService({
     store,
     output,
@@ -114,9 +119,11 @@ export async function run(
       : {}),
   });
   const broker = new BrokerClient({
+    authorization: targetAuthorization,
     ...(dependencies.fetcher ? { fetcher: dependencies.fetcher } : {}),
   });
   const pairing = new PairingClient({
+    authorization: targetAuthorization,
     store,
     output,
     ...(dependencies.fetcher ? { fetcher: dependencies.fetcher } : {}),
@@ -125,6 +132,7 @@ export async function run(
       : {}),
   });
   const externalChat = new ExternalChatClient({
+    authorization: targetAuthorization,
     store,
     output,
     ...(dependencies.fetcher ? { fetcher: dependencies.fetcher } : {}),
@@ -138,15 +146,10 @@ export async function run(
         await auth.status(signal);
         return 0;
       case "logout":
-        await auth.logout(signal);
+        await auth.logout(signal, parsed.revoke);
         return 0;
     }
-    const token = await auth.requireAccessToken(
-      parsed.action === "pair"
-        ? "Authenticate in the TeamClaws CLI with `teamclaws login` before making a pairing request."
-        : "Authenticate in the TeamClaws CLI with `teamclaws login` before running this command.",
-      signal,
-    );
+    await targetAuthorization.requireGrant();
     switch (parsed.action) {
       case "shell": {
         const result = await runShell(
@@ -154,6 +157,7 @@ export async function run(
           dependencies.fetcher ?? shellFetch,
           parsePairingTarget(parsed.target),
           parsed.command,
+          targetAuthorization,
           signal,
         );
         if (parsed.json) stdout.write(`${JSON.stringify(result)}\n`);
@@ -164,11 +168,10 @@ export async function run(
         return result.exit_code;
       }
       case "servers_list": {
-        const inventory = await broker.servers(token, signal);
+        const inventory = await broker.servers(signal);
         await offerServerMetadata(
           inventory.servers,
           broker,
-          token,
           parsed.json,
           output,
           dependencies.io,
@@ -179,7 +182,6 @@ export async function run(
       }
       case "servers_update": {
         const server = await broker.updateServerMetadata(
-          token,
           parsed.serverId,
           parsed.updates,
           signal,
@@ -192,13 +194,12 @@ export async function run(
           ? parsePairingTarget(parsed.target)
           : await discoverTarget(
               broker,
-              token,
               parsed.json,
               output,
               dependencies.io,
               signal,
             );
-        const pending = await broker.startPairing(target, token, signal);
+        const pending = await broker.startPairing(target, signal);
         await pairing.complete(
           pending,
           broker.currentDeviceName(),
@@ -255,9 +256,10 @@ type ParsedArguments =
       email?: string;
     }
   | {
-      action: "auth_status" | "logout" | "servers_list";
+      action: "auth_status" | "servers_list";
       json: boolean;
     }
+  | { action: "logout"; json: boolean; revoke: boolean }
   | { action: "pair"; json: boolean; target?: string; noOpen: boolean }
   | { action: "pair_status"; json: boolean; target: string }
   | { action: "chat_capabilities" | "chat_list"; json: boolean; target: string }
@@ -319,8 +321,11 @@ export function parseArguments(arguments_: string[]): ParsedArguments {
     }
     throw usageError();
   }
-  if (args[0] === "logout" && args.length === 1)
-    return { action: "logout", json };
+  if (
+    args[0] === "logout" &&
+    (args.length === 1 || (args.length === 2 && args[1] === "--revoke"))
+  )
+    return { action: "logout", json, revoke: args.length === 2 };
   if (args[0] === "auth" && args[1] === "status" && args.length === 2) {
     return { action: "auth_status", json };
   }
@@ -489,17 +494,15 @@ function nonNegativeInteger(value?: string): number {
 
 async function discoverTarget(
   broker: BrokerClient,
-  token: string,
   json: boolean,
   output: Output,
   io: AppIo | undefined,
   signal?: AbortSignal,
 ): Promise<PairingTarget> {
-  const inventory = await broker.servers(token, signal);
+  const inventory = await broker.servers(signal);
   await offerServerMetadata(
     inventory.servers,
     broker,
-    token,
     json,
     output,
     io,
@@ -536,7 +539,6 @@ async function discoverTarget(
 async function offerServerMetadata(
   servers: ServerSummary[],
   broker: BrokerClient,
-  token: string,
   json: boolean,
   output: Output,
   io?: AppIo,
@@ -553,11 +555,7 @@ async function offerServerMetadata(
       (server.custom_alias.trim() !== "" && server.description.trim() !== "")
     )
       continue;
-    const claimed = await broker.claimMetadataPrompt(
-      token,
-      server.server_id,
-      signal,
-    );
+    const claimed = await broker.claimMetadataPrompt(server.server_id, signal);
     Object.assign(server, claimed.server);
     if (!claimed.should_prompt) continue;
     output.serverMetadataPrompt(server);
@@ -582,7 +580,6 @@ async function offerServerMetadata(
       if (description.trim()) updates.description = description;
       if (Object.keys(updates).length > 0) {
         const updated = await broker.updateServerMetadata(
-          token,
           server.server_id,
           updates,
           signal,
@@ -636,5 +633,5 @@ function usageError(): TeamClawsError {
 }
 
 export function helpText(): string {
-  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws login [email] [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
+  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws login [email] [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
 }
