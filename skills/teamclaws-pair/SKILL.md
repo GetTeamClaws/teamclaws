@@ -28,7 +28,8 @@ explicit workspace address or server identifier is supplied. On `login_required`
 or `invalid_authentication` (exit 3), explain that login is required. For a
 status-only request, stop. For an authorized connect request, follow the login
 skill and resume after verified login. Do not retry with an explicit target to bypass login.
-The CLI verifies account authentication before workspace contact or approval.
+The CLI requires its saved authorization and matching machine key. Existing
+pairings without this binding require re-pairing.
 
 ## Status-only guardrail
 

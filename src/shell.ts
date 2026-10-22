@@ -3,9 +3,11 @@ import { request as httpsRequest } from "node:https";
 import { Readable } from "node:stream";
 
 import { TeamClawsError } from "./errors.js";
-import { errorFromResponse, requestJson, type FetchLike } from "./http.js";
+import { errorFromResponse, type FetchLike } from "./http.js";
+import { requestTargetJson } from "./target-authorization.js";
 import type { CredentialStore } from "./storage.js";
 import type { PairingTarget } from "./types.js";
+import type { TargetAuthorization } from "./target-authorization.js";
 import { isObject } from "./validation.js";
 
 export type ShellResult = { stdout: string; stderr: string; exit_code: number };
@@ -15,6 +17,7 @@ export async function runShell(
   fetcher: FetchLike,
   target: PairingTarget,
   command: string,
+  authorization: TargetAuthorization,
   signal?: AbortSignal,
 ): Promise<ShellResult> {
   const credential = await store.findWorkspace(target);
@@ -25,14 +28,14 @@ export async function runShell(
       { exitCode: 3 },
     );
   }
-  const response = await requestJson(
+  const url = `${credential.origin}/teamclaws-admin/api/shell/`;
+  const response = await requestTargetJson(
     fetcher,
-    `${credential.origin}/teamclaws-admin/api/shell/`,
+    authorization,
+    url,
+    credential,
     {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${credential.device_id}:${credential.device_token}`,
-      },
       textBody: command,
       timeoutMs: null,
       responseLimitBytes: null,

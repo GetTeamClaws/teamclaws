@@ -1,5 +1,9 @@
 import { hostname } from "node:os";
 import { randomUUID } from "node:crypto";
+import type {
+  TargetAuthorization,
+  DurableAuthorization,
+} from "./target-authorization.js";
 
 import {
   API_BASE,
@@ -30,37 +34,34 @@ import {
 export type BrokerOptions = {
   fetcher?: FetchLike;
   deviceName?: () => string;
+  authorization?: TargetAuthorization;
 };
 
 export class BrokerClient {
   private readonly fetcher: FetchLike;
   private readonly deviceName: () => string;
+  private readonly authorization: TargetAuthorization | undefined;
 
   constructor(options: BrokerOptions = {}) {
     this.fetcher = options.fetcher ?? fetch;
     this.deviceName = options.deviceName ?? hostname;
+    this.authorization = options.authorization;
   }
 
   currentDeviceName(): string {
     return normalizedDeviceName(this.deviceName());
   }
 
-  async servers(
-    accessToken: string,
-    signal?: AbortSignal,
-  ): Promise<WorkspaceInventory> {
-    const response = await requestJson(
-      this.fetcher,
-      `${API_BASE}servers/?include_inventory=1&include_description=1&include_editable_metadata=1`,
-      {
-        headers: requestHeaders(accessToken),
-        ...(signal ? { signal } : {}),
-      },
-    );
+  async servers(signal?: AbortSignal): Promise<WorkspaceInventory> {
+    const url = `${API_BASE}servers/?include_inventory=1&include_description=1&include_editable_metadata=1`;
+    const response = await requestJson(this.fetcher, url, {
+      headers: await this.issuerHeaders("GET", url),
+      ...(signal ? { signal } : {}),
+    });
     if (response.status === 401) {
       throw new TeamClawsError(
         "invalid_authentication",
-        "The TeamClaws login is no longer valid. Run `teamclaws login` to authenticate.",
+        "The TeamClaws CLI authorization is inactive. Run `teamclaws login` to authorize this computer again.",
         {
           exitCode: 3,
         },
@@ -73,7 +74,6 @@ export class BrokerClient {
   }
 
   async updateServerMetadata(
-    accessToken: string,
     serverId: string,
     updates: ServerMetadataUpdate,
     signal?: AbortSignal,
@@ -91,16 +91,13 @@ export class BrokerClient {
       );
     }
     const id = normalizeUuid(serverId);
-    const response = await requestJson(
-      this.fetcher,
-      `${API_BASE}servers/${id}/metadata/`,
-      {
-        method: "POST",
-        headers: requestHeaders(accessToken),
-        body: updates,
-        ...(signal ? { signal } : {}),
-      },
-    );
+    const url = `${API_BASE}servers/${id}/metadata/`;
+    const response = await requestJson(this.fetcher, url, {
+      method: "POST",
+      headers: await this.issuerHeaders("POST", url),
+      body: updates,
+      ...(signal ? { signal } : {}),
+    });
     if (response.status < 200 || response.status >= 300)
       throw errorFromResponse(response, "server_metadata_update_failed");
     if (!isObject(response.body)) throw invalidMetadataResponse();
@@ -109,21 +106,17 @@ export class BrokerClient {
   }
 
   async claimMetadataPrompt(
-    accessToken: string,
     serverId: string,
     signal?: AbortSignal,
   ): Promise<{ should_prompt: boolean; server: ServerMetadata }> {
     const id = normalizeUuid(serverId);
-    const response = await requestJson(
-      this.fetcher,
-      `${API_BASE}servers/${id}/metadata-prompt/claim/`,
-      {
-        method: "POST",
-        headers: requestHeaders(accessToken),
-        body: {},
-        ...(signal ? { signal } : {}),
-      },
-    );
+    const url = `${API_BASE}servers/${id}/metadata-prompt/claim/`;
+    const response = await requestJson(this.fetcher, url, {
+      method: "POST",
+      headers: await this.issuerHeaders("POST", url),
+      body: {},
+      ...(signal ? { signal } : {}),
+    });
     if (response.status < 200 || response.status >= 300)
       throw errorFromResponse(response, "server_metadata_prompt_failed");
     if (!isObject(response.body)) throw invalidMetadataResponse();
@@ -143,20 +136,30 @@ export class BrokerClient {
 
   async startPairing(
     target: PairingTarget,
-    accessToken?: string,
     signal?: AbortSignal,
   ): Promise<PendingPairing> {
-    const request = pairingStartRequest(target, this.currentDeviceName());
-    const response = await requestJson(
-      this.fetcher,
-      `${API_BASE}pairing/start/`,
-      {
-        method: "POST",
-        headers: requestHeaders(accessToken),
-        body: request,
-        ...(signal ? { signal } : {}),
-      },
+    if (!this.authorization)
+      throw new TeamClawsError(
+        "login_required",
+        "CLI authorization is required for pairing.",
+        { exitCode: 3 },
+      );
+    const grant = await this.authorization.requireGrant();
+    const request = pairingStartRequest(
+      target,
+      this.currentDeviceName(),
+      grant,
     );
+    const url = `${API_BASE}pairing/start/`;
+    const response = await requestJson(this.fetcher, url, {
+      method: "POST",
+      headers: {
+        ...requestHeaders(),
+        DPoP: await this.authorization.dpop(grant.machine_key, "POST", url),
+      },
+      body: request,
+      ...(signal ? { signal } : {}),
+    });
     if (response.status < 200 || response.status >= 300) {
       throw errorFromResponse(response, "pairing_start_failed");
     }
@@ -179,6 +182,22 @@ export class BrokerClient {
       );
     }
     return pending;
+  }
+
+  private async issuerHeaders(
+    method: string,
+    url: string,
+  ): Promise<Record<string, string>> {
+    if (!this.authorization)
+      throw new TeamClawsError(
+        "login_required",
+        "CLI authorization is required.",
+        { exitCode: 3 },
+      );
+    return {
+      ...requestHeaders(),
+      ...(await this.authorization.accountHeadersFor(method, url)),
+    };
   }
 }
 
@@ -219,6 +238,7 @@ function editableServer(value: unknown, expectedId: string): ServerMetadata {
 export function pairingStartRequest(
   target: PairingTarget,
   deviceName: string,
+  grant: DurableAuthorization,
 ): Record<string, unknown> {
   return {
     contract_version: CONTRACT_VERSION,
@@ -227,6 +247,7 @@ export function pairingStartRequest(
     device_name: deviceName,
     client_name: CLIENT_NAME,
     client_version: PACKAGE_VERSION,
+    authorization_id: grant.authorization_id,
   };
 }
 
@@ -238,13 +259,12 @@ export function normalizedDeviceName(value: string): string {
   return normalized || "Unnamed computer";
 }
 
-function requestHeaders(accessToken?: string): Record<string, string> {
+function requestHeaders(): Record<string, string> {
   const headers: Record<string, string> = {
     "User-Agent": `${CLIENT_NAME}/${PACKAGE_VERSION}`.slice(
       0,
       MAX_CLIENT_LABEL_LENGTH,
     ),
   };
-  if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
   return headers;
 }

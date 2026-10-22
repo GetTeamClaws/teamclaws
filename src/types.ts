@@ -73,12 +73,16 @@ export type LoginCredential = {
 };
 
 export type WorkspaceCredential = {
-  version: 1;
+  version: 2;
   server_id: string;
   origin: string;
   display_name: string;
   device_id: string;
+  pairing_id: string;
   device_token: string;
+  requester_sub: string;
+  authorization_id: string;
+  machine_jkt: string;
   created_at: string;
 };
 
@@ -90,6 +94,10 @@ export type StatusWorkspaceCredential = Pick<
   | "display_name"
   | "device_id"
   | "device_token"
+  | "pairing_id"
+  | "requester_sub"
+  | "authorization_id"
+  | "machine_jkt"
 >;
 
 export type PairingStatus =
@@ -154,4 +162,10 @@ export type PairingCredential = {
   external_chat_capabilities_generated_at?: unknown;
   device_id: string;
   device_token: string;
+  pairing_id: string;
+  server_id: string;
+  origin: string;
+  requester_sub: string;
+  authorization_id: string;
+  machine_jkt: string;
 };

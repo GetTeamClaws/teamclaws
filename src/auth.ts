@@ -1,11 +1,10 @@
 import {
-  ACCESS_TOKEN_MAX_LIFETIME_SECONDS,
   API_BASE,
+  API_V2_BASE,
   API_RESOURCE,
   OAUTH_CLIENT_ID,
   OAUTH_DEVICE_AUTHORIZATION_URL,
   OAUTH_LOGIN_TIMEOUT_MS,
-  OAUTH_REVOKE_URL,
   OAUTH_TOKEN_URL,
   TEAMCLAWS_ORIGIN,
 } from "./constants.js";
@@ -13,7 +12,7 @@ import { TeamClawsError } from "./errors.js";
 import { errorFromResponse, requestJson, type FetchLike } from "./http.js";
 import type { Output } from "./output.js";
 import type { CredentialStore } from "./storage.js";
-import type { LoginCredential, SafeUser } from "./types.js";
+import type { SafeUser } from "./types.js";
 import {
   assertExactKeys,
   isObject,
@@ -23,6 +22,15 @@ import {
   requireString,
 } from "./validation.js";
 import { openExternalBrowser } from "./browser.js";
+import {
+  OsMachineKeyProvider,
+  type MachineKeyProvider,
+  type MachineKeyReference,
+} from "./machine-key.js";
+import {
+  TargetAuthorization,
+  type DurableAuthorization,
+} from "./target-authorization.js";
 
 const DEVICE_CODE_GRANT_TYPE = "urn:ietf:params:oauth:grant-type:device_code";
 
@@ -34,6 +42,7 @@ export type AuthServiceOptions = {
   now?: () => number;
   wait?: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
   loginTimeoutMs?: number;
+  machineKeys?: MachineKeyProvider;
 };
 
 export class AuthService {
@@ -47,6 +56,7 @@ export class AuthService {
     signal?: AbortSignal,
   ) => Promise<void>;
   private readonly loginTimeoutMs: number;
+  private readonly machineKeys: MachineKeyProvider;
 
   constructor(options: AuthServiceOptions) {
     this.fetcher = options.fetcher ?? fetch;
@@ -56,38 +66,54 @@ export class AuthService {
     this.now = options.now ?? Date.now;
     this.wait = options.wait ?? waitFor;
     this.loginTimeoutMs = options.loginTimeoutMs ?? OAUTH_LOGIN_TIMEOUT_MS;
+    this.machineKeys =
+      options.machineKeys ?? new OsMachineKeyProvider(this.store.root);
   }
 
   async login(email?: string, signal?: AbortSignal): Promise<SafeUser> {
     const boundEmail = email === undefined ? undefined : parseLoginEmail(email);
-    const pending = await this.startDevice(boundEmail, signal);
+    const machineKey = await this.machineKeys.create();
+    const pending = await this.startDevice(boundEmail, machineKey, signal);
     this.output.loginBrowser(pending.verification_uri_complete);
     await this.openBrowser(pending.verification_uri_complete).catch(
       () => false,
     );
-    const credential = await this.poll(pending, signal);
-    const user = await this.fetchIdentity(credential.access_token, signal);
-    await this.store.writeLogin(credential);
+    const { authorization_id, sub, machine_jkt } = await this.poll(
+      pending,
+      machineKey,
+      signal,
+    );
+    if (machine_jkt !== machineKey.jkt) throw invalidTokenResponse();
+    const grant: DurableAuthorization = {
+      version: 2,
+      authorization_id,
+      sub,
+      machine_key: machineKey,
+    };
+    const user = await this.fetchIdentity(grant, signal);
+    if (user.id !== sub) throw invalidTokenResponse();
+    await this.store.writeAuthorization(grant);
+    await this.store.removeLogin();
     this.output.loginComplete(user);
     return user;
   }
 
   async status(signal?: AbortSignal): Promise<SafeUser | undefined> {
-    const credential = await this.store.readLogin();
-    if (!credential) {
+    const grant = await this.store.readAuthorization();
+    if (!grant) {
       this.output.authStatus("signed_out");
       return undefined;
     }
     try {
-      const active = await this.ensureActive(credential, signal);
-      const user = await this.fetchIdentity(active.access_token, signal);
-      this.output.authStatus("signed_in", user, active.expires_at);
+      const user = await this.fetchIdentity(grant, signal);
+      this.output.authStatus("signed_in", user);
       return user;
     } catch (error) {
       if (
         error instanceof TeamClawsError &&
         error.code === "invalid_authentication"
       ) {
+        await this.store.removeAuthorization();
         await this.store.removeLogin();
         this.output.authStatus("signed_out");
         return undefined;
@@ -96,58 +122,40 @@ export class AuthService {
     }
   }
 
-  async logout(signal?: AbortSignal): Promise<boolean> {
-    const credential = await this.store.readLogin();
-    let remoteConfirmed = true;
-    if (credential) {
-      try {
-        await this.revoke(credential.refresh_token, signal);
-      } catch {
-        remoteConfirmed = false;
-      }
+  async logout(signal?: AbortSignal, revokeGrant = false): Promise<boolean> {
+    const grant = await this.store.readAuthorization();
+    if (revokeGrant && grant) {
+      const url = `${API_V2_BASE}authorizations/${grant.authorization_id}/revoke/`;
+      const signer = new TargetAuthorization(
+        this.store,
+        this.fetcher,
+        this.machineKeys,
+        this.now,
+      );
+      const response = await requestJson(this.fetcher, url, {
+        method: "POST",
+        headers: await signer.accountHeadersForGrant(grant, "POST", url),
+        ...(signal ? { signal } : {}),
+      });
+      if (response.status !== 204)
+        throw errorFromResponse(response, "remote_logout_unconfirmed");
     }
     await this.store.removeLogin();
-    this.output.logoutComplete(remoteConfirmed);
-    return remoteConfirmed;
-  }
-
-  async accessToken(signal?: AbortSignal): Promise<string | undefined> {
-    const credential = await this.store.readLogin();
-    if (!credential) return undefined;
-    const active = await this.ensureActive(credential, signal);
-    return active.access_token;
-  }
-
-  async requireAccessToken(
-    message: string,
-    signal?: AbortSignal,
-  ): Promise<string> {
-    const token = await this.accessToken(signal);
-    if (!token) {
-      throw new TeamClawsError("login_required", message, { exitCode: 3 });
-    }
-    await this.fetchIdentity(token, signal);
-    return token;
-  }
-
-  private async ensureActive(
-    credential: LoginCredential,
-    signal?: AbortSignal,
-  ): Promise<LoginCredential> {
-    const expiresAt = Date.parse(credential.expires_at);
-    if (expiresAt - this.now() > 30_000) return credential;
-    const refreshed = await this.refresh(credential.refresh_token, signal);
-    await this.store.writeLogin(refreshed);
-    return refreshed;
+    await this.store.removeAuthorization();
+    this.output.logoutComplete(true);
+    return true;
   }
 
   private async startDevice(
     email: string | undefined,
+    machineKey: MachineKeyReference,
     signal?: AbortSignal,
   ): Promise<DeviceAuthorization> {
     const form = new URLSearchParams({
       client_id: OAUTH_CLIENT_ID,
       resource: API_RESOURCE,
+      scope: "basic",
+      machine_jwk: JSON.stringify(machineKey.public_jwk),
     });
     if (email) form.set("email", email);
     const response = await requestJson(
@@ -167,8 +175,13 @@ export class AuthService {
 
   private async poll(
     pending: DeviceAuthorization,
+    machineKey: MachineKeyReference,
     signal?: AbortSignal,
-  ): Promise<LoginCredential> {
+  ): Promise<{
+    authorization_id: string;
+    sub: string;
+    machine_jkt: string;
+  }> {
     const startedAt = this.now();
     const deadline = Math.min(
       startedAt + pending.expires_in * 1_000,
@@ -180,6 +193,14 @@ export class AuthService {
       if (this.now() >= deadline) break;
       const response = await requestJson(this.fetcher, OAUTH_TOKEN_URL, {
         method: "POST",
+        headers: {
+          DPoP: await new TargetAuthorization(
+            this.store,
+            this.fetcher,
+            this.machineKeys,
+            this.now,
+          ).tokenDpop(machineKey),
+        },
         form: new URLSearchParams({
           grant_type: DEVICE_CODE_GRANT_TYPE,
           device_code: pending.device_code,
@@ -189,7 +210,21 @@ export class AuthService {
         ...(signal ? { signal } : {}),
       });
       if (response.status >= 200 && response.status < 300) {
-        return parseTokenResponse(response.body, this.now());
+        if (!isObject(response.body)) throw invalidTokenResponse();
+        validateBootstrapTokens(response.body);
+        return {
+          authorization_id: requireString(
+            response.body.authorization_id,
+            "authorization ID",
+            36,
+          ),
+          sub: requireString(response.body.sub, "user subject", 255),
+          machine_jkt: requireString(
+            response.body.machine_jkt,
+            "machine key thumbprint",
+            43,
+          ),
+        };
       }
       const code = oauthErrorCode(response.body);
       if (code === "authorization_pending") {
@@ -222,48 +257,25 @@ export class AuthService {
     );
   }
 
-  private async refresh(
-    refreshToken: string,
-    signal?: AbortSignal,
-  ): Promise<LoginCredential> {
-    try {
-      const response = await requestJson(this.fetcher, OAUTH_TOKEN_URL, {
-        method: "POST",
-        form: new URLSearchParams({
-          grant_type: "refresh_token",
-          refresh_token: refreshToken,
-          client_id: OAUTH_CLIENT_ID,
-          resource: API_RESOURCE,
-        }),
-        ...(signal ? { signal } : {}),
-      });
-      if (response.status < 200 || response.status >= 300) {
-        throw oauthError(response.status, response.body);
-      }
-      return parseTokenResponse(response.body, this.now());
-    } catch (error) {
-      if (
-        error instanceof TeamClawsError &&
-        error.code === "invalid_authentication"
-      ) {
-        await this.store.removeLogin();
-      }
-      throw error;
-    }
-  }
-
   private async fetchIdentity(
-    accessToken: string,
+    grant: DurableAuthorization,
     signal?: AbortSignal,
   ): Promise<SafeUser> {
-    const response = await requestJson(this.fetcher, `${API_BASE}me/`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
+    const url = `${API_BASE}me/`;
+    const signer = new TargetAuthorization(
+      this.store,
+      this.fetcher,
+      this.machineKeys,
+      this.now,
+    );
+    const response = await requestJson(this.fetcher, url, {
+      headers: await signer.accountHeadersForGrant(grant, "GET", url),
       ...(signal ? { signal } : {}),
     });
     if (response.status === 401) {
       throw new TeamClawsError(
         "invalid_authentication",
-        "The TeamClaws login is no longer valid. Run `teamclaws login` to authenticate.",
+        "The TeamClaws CLI authorization is inactive. Run `teamclaws login` to authorize this computer again.",
         {
           exitCode: 3,
         },
@@ -272,34 +284,14 @@ export class AuthService {
     if (response.status < 200 || response.status >= 300) {
       throw errorFromResponse(response, "identity_unavailable");
     }
-    return parseSafeUserResponse(response.body);
-  }
-
-  private async revoke(
-    refreshToken: string,
-    signal?: AbortSignal,
-  ): Promise<void> {
-    const timeout = AbortSignal.timeout(10_000);
-    const combined = signal ? AbortSignal.any([timeout, signal]) : timeout;
-    const response = await this.fetcher(OAUTH_REVOKE_URL, {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        token: refreshToken,
-        client_id: OAUTH_CLIENT_ID,
-      }),
-      redirect: "error",
-      signal: combined,
-    });
-    if (response.status < 200 || response.status >= 300) {
-      throw new TeamClawsError(
-        "remote_logout_unconfirmed",
-        "Remote logout was not confirmed.",
-      );
-    }
+    if (
+      !isObject(response.body) ||
+      response.body.authorization_id !== grant.authorization_id
+    )
+      throw invalidTokenResponse();
+    const user = parseSafeUserResponse(response.body);
+    if (user.id !== grant.sub) throw invalidTokenResponse();
+    return user;
   }
 }
 
@@ -355,22 +347,12 @@ function parseDeviceAuthorization(body: unknown): DeviceAuthorization {
   };
 }
 
-function parseTokenResponse(body: unknown, now: number): LoginCredential {
+function validateBootstrapTokens(body: unknown): void {
   if (!isObject(body)) throw invalidTokenResponse();
-  const accessToken = requireToken(body.access_token);
-  const refreshToken = requireToken(body.refresh_token);
+  requireToken(body.access_token);
+  requireToken(body.refresh_token);
   if (body.token_type !== "Bearer") throw invalidTokenResponse();
-  const expiresIn = Math.min(
-    requireInteger(body.expires_in, "access-token lifetime", 1, 86_400),
-    ACCESS_TOKEN_MAX_LIFETIME_SECONDS,
-  );
-  return {
-    version: 1,
-    token_type: "Bearer",
-    access_token: accessToken,
-    refresh_token: refreshToken,
-    expires_at: new Date(now + expiresIn * 1_000).toISOString(),
-  };
+  requireInteger(body.expires_in, "access-token lifetime", 1, 86_400);
 }
 
 function parseLoginEmail(value: string): string {

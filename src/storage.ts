@@ -17,6 +17,10 @@ import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 import { TeamClawsError } from "./errors.js";
+import {
+  parseDurableAuthorization,
+  type DurableAuthorization,
+} from "./target-authorization.js";
 import type {
   LoginCredential,
   PairingTarget,
@@ -59,12 +63,14 @@ export type FileStoreOptions = {
 export class CredentialStore {
   readonly root: string;
   readonly loginPath: string;
+  readonly authorizationPath: string;
   readonly workspaceDirectory: string;
   private readonly platform: NodeJS.Platform;
 
   constructor(options: FileStoreOptions = {}) {
     this.root = options.root ?? defaultRoot();
     this.loginPath = join(this.root, "cli-auth.json");
+    this.authorizationPath = join(this.root, "cli-authorization.json");
     this.workspaceDirectory = join(this.root, "clawgate-devices");
     this.platform = options.platform ?? process.platform;
   }
@@ -82,6 +88,26 @@ export class CredentialStore {
     await unlink(this.loginPath).catch((error: NodeJS.ErrnoException) => {
       if (error.code !== "ENOENT") throw storageError();
     });
+  }
+
+  async readAuthorization(): Promise<DurableAuthorization | undefined> {
+    const value = await this.readJsonIfPresent(this.authorizationPath);
+    return value === undefined ? undefined : parseDurableAuthorization(value);
+  }
+
+  async writeAuthorization(grant: DurableAuthorization): Promise<void> {
+    await this.writePrivateJson(
+      this.authorizationPath,
+      parseDurableAuthorization(grant),
+    );
+  }
+
+  async removeAuthorization(): Promise<void> {
+    await unlink(this.authorizationPath).catch(
+      (error: NodeJS.ErrnoException) => {
+        if (error.code !== "ENOENT") throw storageError();
+      },
+    );
   }
 
   workspacePath(serverId: string): string {

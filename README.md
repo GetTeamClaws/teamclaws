@@ -100,6 +100,7 @@ npx teamclaws login
 npx teamclaws login <email>
 npx teamclaws auth status
 npx teamclaws logout
+npx teamclaws logout --revoke
 npx teamclaws servers list
 npx teamclaws pair status <server-identifier-or-canonical-workspace-address>
 npx teamclaws pair
@@ -114,11 +115,14 @@ Human-readable output is the default. Add `--json` for the strict, versioned,
 newline-delimited JSON event stream intended for automation.
 
 Pairing (including explicit targets), server listing, pair status, chat, and shell
-require a valid TeamClaws CLI account login. Run `teamclaws login` first. The CLI
-refreshes and verifies that login before contacting the workspace or requesting
-pairing approval. Missing or invalid authentication exits with code 3 in both
-human and JSON modes. Help, version, login, auth status, and logout remain
-available. Saved workspace credentials are preserved when login is required.
+require a saved TeamClaws CLI authorization and its local machine key. Run
+`teamclaws login` first. Login uses the browser approval to bind a new key to
+your TeamClaws account; the CLI discards the temporary OAuth tokens. Later
+commands sign fresh proofs without repeating browser approval. Missing or
+revoked authorization exits with code 3 in both human and JSON modes. Help,
+version, login, auth status, and logout remain available. Saved workspace
+credentials are preserved when login is required, but pairings made before this
+authorization protocol must be paired again.
 
 Pairing is broad privileged delegation to the approved workspace. The client
 does not request or select scopes, profiles, capability bundles, roles, user
@@ -129,10 +133,10 @@ The client never accepts a model or harness access token. An agent that already
 discovered a workspace passes only the selected stable server identifier to the
 `pair` command.
 
-After account authentication, `pair status` reads the matching protected local
-workspace credential, performs at most one direct workspace verification with a
-five-second timeout, reports the result, and stops. It never starts pairing or
-loads external-chat resources.
+`pair status` reads the matching protected local workspace credential, obtains
+a short-lived target proof for that bound pairing, performs at most one direct
+workspace verification with a five-second timeout, reports the result, and
+stops. It never starts pairing or loads external-chat resources.
 
 After pairing, `chat start`, `chat send`, and `chat watch` use the protected
 workspace credential directly against that exact workspace. They verify the
@@ -164,12 +168,16 @@ execution outcome unknown; inspect the host before deciding to run it again.
 
 ## Local storage
 
-Login credentials are stored in the private TeamClaws user directory. Completed
-workspace credentials are stored by stable server identifier beneath
+The CLI stores the approved authorization ID, account ID, and public key
+reference in its private user directory. The private signing key remains in
+Windows CNG or, on Linux and macOS, a separate protected PKCS#8 key file.
+Completed workspace credentials are stored by stable server identifier beneath
 `~/.teamclaws/clawgate-devices/<server-uuid>.json`. Writes are atomic. Unix
 directories use mode `0700` and files use mode `0600`; Windows uses
 inheritance-disabled access-control entries limited to the current user and the
-Windows system account.
+Windows system account. Ordinary `logout` removes local authorization access;
+`logout --revoke` waits for TeamClaws to confirm server-side revocation before
+removing the local reference. Neither command deletes saved pairings.
 
 The package is licensed under the PolyForm Shield License 1.0.0. Paid service
 access is enforced by TeamClaws servers, not by the client license.

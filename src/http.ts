@@ -101,6 +101,8 @@ export async function requestJson(
     .get("content-type")
     ?.split(";", 1)[0]
     ?.trim();
+  if (response.status === 204)
+    return { status: 204, headers: response.headers, body: null };
   if (contentType !== "application/json") {
     throw new TeamClawsError(
       "invalid_response",
