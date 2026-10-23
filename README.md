@@ -43,6 +43,34 @@ live hosting. Login and pairing mechanics remain in their respective skills;
 [teamclaws-project](skills/teamclaws-project/SKILL.md) covers project work through
 the existing paired shell. Status-only requests do not start onboarding.
 
+Before any browser authorization, the agent explains the process: sign this
+computer's CLI into the user's TeamClaws account through the browser, choose a
+workspace and approve pairing with that server in the browser, then choose useful
+work and set up its environment on the server. It explains the purpose and access
+of each approval before presenting a link, adapting to steps already completed.
+The conversation starts with that context rather than an unexplained request to
+click an authorization link.
+
+Agents keep their turn and the original login/pairing process alive while the
+user approves in the browser, monitor its output, and continue automatically
+after terminal success. No "I approved" message is needed. An execution
+environment that must yield needs a supported completion callback or automatic
+wakeup that preserves the process; a saved skill alone cannot supply that
+runtime capability.
+
+After verified pairing, the agent refreshes `teamclaws servers list --json` and
+presents each workspace's name, description, and readiness in a Markdown list or
+code block, or plain text with one option per line. It then suggests concrete
+uses tied to the user's work and continues an already authorized task. An
+explicit request to stop at pairing takes precedence. Pairing and status-only
+requests never implicitly authorize deployment, sharing, or a remote chat.
+
+The bundled [workspace capability guide](skills/teamclaws-onboard/references/workspace-uses.md)
+explains complete jobs, long-running services, external APIs and servers, agents
+with browser access, development and production hosting, and sharing. Agents
+should use it to propose relevant work in the user's vocabulary and verify each
+selected host's prerequisites before promising a capability is ready.
+
 ### Onboarding output contract
 
 Existing event names and schema version remain unchanged. The
@@ -50,6 +78,36 @@ Existing event names and schema version remain unchanged. The
 `Sign in to TeamClaws`, and `account_guidance`. Display these immediately while
 login keeps running. Signed-out `auth_status` includes the non-executing
 `login_command: "teamclaws login --json"`; status never starts device authorization.
+
+`pairing_browser_required` supplies the safe approval URL and public `user_code`.
+Some hosts include a validated `agent_action` with the legacy type
+`deliver_and_stop`. The agent displays its approval message and continues
+monitoring the original process; that field does not end the agent's turn. The
+CLI directly polls at the host-provided interval, handles pending and slow-down
+responses, and verifies the approved credential before `pairing_complete`.
+Success requires that terminal event and exit 0. Denial, expiry, cancellation,
+and errors end the attempt without automatic restart. An interrupted output
+stream leaves the outcome unconfirmed and must be reconciled before retrying.
+
+### Approval continuation verification
+
+The development tests exercise pending approval, automatic credential completion,
+denial, expiry, cancellation, and a referenced polling timer. The delayed
+approval process test runs the compiled pairing client with stdin disconnected:
+a fixture simulates the owner's later browser approval, and the same child
+process must emit exactly one `pairing_complete` and exit 0 without a chat reply.
+Package validation also checks that the capability reference ships with the
+skills and matches the source bytes by SHA-256.
+
+For acceptance in an agent environment, load the updated bundled skills, select
+an authorized test workspace, and start pairing. Confirm the approval link is
+visible while the turn stays active. Approve in the browser without sending a
+chat message. The agent must observe terminal success, refresh and format the
+workspace inventory, and continue the authorized task or suggest a relevant next
+action. Repeat denial and expiry to confirm it stops without creating another
+request. Test a required-yield environment separately if automatic wakeup is
+used. Local CLI tests establish process behavior, not automatic loading or
+compliance in every agent environment.
 
 `servers list` requests `GET /api/cli/v1/servers/?include_inventory=1&include_description=1&include_editable_metadata=1`. Updated
 brokers return `servers` and `workspace_count`: the count of all non-deleted
@@ -70,6 +128,14 @@ remain error events. A verified empty account uses https://teamclaws.com/app/ to
 purchase a workspace. Existing owners whose machines are being prepared do not
 need another purchase. Targetless pairing requires explicit selection even for
 one result; agents present aliases and pass only user-selected stable IDs.
+
+During onboarding or the post-pairing inventory, agents suggest a recognizable
+name for the selected editable workspace if its displayed alias matches
+`workspace-` followed by 12 lowercase hexadecimal characters, such as
+`workspace-07d9e4893885`. Suggestions should reflect the user's project or intended
+use and wait for their choice before renaming. A customized display name is kept
+even when its hostname still follows that pattern. Combine this suggestion with
+any metadata prompt already being shown rather than asking twice.
 
 Owners can edit their server's user-defined name and description:
 
@@ -148,6 +214,12 @@ create request, and use the watch cursors printed in JSON events to resume
 monitoring without creating another turn.
 
 ## Host shell commands
+
+For authorized workspace administration, first check pairing status with
+`teamclaws pair status <target> --json`. If `not_paired`, complete CLI login and pairing
+approval for that workspace before using the shell. A linked AI provider or
+TCChat conversation is not required for paired-shell access; remote chat is a
+separate operation.
 
 `teamclaws shell <target> --command <text> [--json]` uses an existing saved
 pairing to execute the exact command text on the workspace host. Quote the

@@ -1,9 +1,9 @@
 ---
 name: teamclaws-project
-description: Move a selected project to a paired TeamClaws machine and optionally run it with the user's public or private access choice. Use after project-transfer or service-setup authorization.
+description: Put authorized files, jobs, agents, or projects on a paired TeamClaws server and run them, including services with the user's public or private access choice.
 ---
 
-# Move and run a project
+# Put work on a TeamClaws server
 
 Use the conversation sequence in [teamclaws-onboard](../teamclaws-onboard/SKILL.md).
 Ask for the project if missing and the paired destination if ambiguous. Inspect
@@ -12,6 +12,39 @@ Preserve the source unless the user explicitly requests deletion. Do not copy
 provider credentials, CLI login files, device credentials, or unrelated secrets.
 Identify required project secrets separately and use the destination's approved
 secret mechanism; do not embed secrets in shell command text or chat.
+
+For ideas and the requirements behind them, read the onboarding skill's
+[workspace uses](../teamclaws-onboard/references/workspace-uses.md). If the user
+already named the job, files, agent, or project and asked you to run or deploy it,
+carry that task through instead of restarting a generic onboarding conversation.
+Inspect the destination's instructions, available runtimes, resources, network
+access, and account permissions through the paired shell before choosing a setup.
+
+## Jobs, services, and external systems
+
+For a complete job, place its code and authorized inputs in a dedicated directory,
+install its required runtime/dependencies, and configure its outputs and logs.
+For work that must continue after this local command exits, use the host's
+supported process manager or job runner. Verify that it remains running after
+the launching command returns. For recurring work, establish the requested
+schedule, limits, and stopping condition before enabling it. Track the remote
+job/service identifier so progress can be checked without launching it again.
+Verify the result files and job exit status before claiming completion.
+
+For an external API, database, webhook, or another server, establish the exact
+destination and authorized operation. Check connectivity and use the workspace's
+approved secret mechanism for credentials. Verify a bounded operation before
+starting the requested workload. Pairing with TeamClaws does not grant access to
+external systems or configure incoming HTTPS routes automatically.
+
+For a workspace agent conversation, follow
+[teamclaws-chat](../teamclaws-chat/SKILL.md) and inspect advertised availability.
+For an installed agent/service, inspect its supported setup and configure its
+runtime and persistence as required. Verify the returned browser conversation
+or application address and access before promising the user can continue there.
+Only claim a CLI-to-browser handoff for the same conversation when supported and
+verified. Sharing access requires the user's intended recipients and permissions
+and the workspace's supported sharing controls.
 
 ## Transfer through the existing paired shell
 
@@ -62,7 +95,8 @@ completed from an upload response alone.
 
 ## Optional live setup
 
-For a website, web app, or another service, ask:
+For a website, web app, or another service whose launch is not already authorized,
+ask:
 
 “Would you like me to get this project up and running on TeamClaws?”
 
