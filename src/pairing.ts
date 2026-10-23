@@ -234,6 +234,7 @@ export class PairingClient {
       const response = await requestJson(this.fetcher, pollUrl, {
         method: "POST",
         body: { device_code: pending.device_code },
+        timeoutMs: Math.max(1, deadline - this.now()),
         ...(signal ? { signal } : {}),
       });
       if (response.status >= 200 && response.status < 300) {
