@@ -220,6 +220,18 @@ export async function run(
           parsePairingTarget(parsed.target),
           signal,
         );
+      case "chat_history":
+        return await externalChat.history(
+          parsePairingTarget(parsed.target),
+          signal,
+        );
+      case "chat_messages":
+        return await externalChat.messages(
+          parsePairingTarget(parsed.target),
+          parsed.chatId,
+          parsed.afterId,
+          signal,
+        );
       case "chat_capabilities":
         return await externalChat.capabilities(
           parsePairingTarget(parsed.target),
@@ -262,7 +274,18 @@ type ParsedArguments =
   | { action: "logout"; json: boolean; revoke: boolean }
   | { action: "pair"; json: boolean; target?: string; noOpen: boolean }
   | { action: "pair_status"; json: boolean; target: string }
-  | { action: "chat_capabilities" | "chat_list"; json: boolean; target: string }
+  | {
+      action: "chat_capabilities" | "chat_list" | "chat_history";
+      json: boolean;
+      target: string;
+    }
+  | {
+      action: "chat_messages";
+      json: boolean;
+      target: string;
+      chatId: string;
+      afterId: number;
+    }
   | { action: "chat_start"; json: boolean; options: ChatStartOptions }
   | { action: "chat_send"; json: boolean; options: ChatSendOptions }
   | { action: "chat_watch"; json: boolean; options: ChatWatchOptions };
@@ -354,6 +377,28 @@ export function parseArguments(arguments_: string[]): ParsedArguments {
   }
   if (args[0] === "chat" && args[1] === "list" && args.length === 3) {
     return { action: "chat_list", json, target: requiredPositional(args, 2) };
+  }
+  if (args[0] === "chat" && args[1] === "history" && args.length === 3) {
+    return {
+      action: "chat_history",
+      json,
+      target: requiredPositional(args, 2),
+    };
+  }
+  if (args[0] === "chat" && args[1] === "messages") {
+    const target = requiredPositional(args, 2);
+    const options = parseNamedOptions(args.slice(3), {
+      values: ["--chat-id", "--after-message-id"],
+      booleans: [],
+    });
+    if (!options.values["--chat-id"]) throw usageError();
+    return {
+      action: "chat_messages",
+      json,
+      target,
+      chatId: normalizeUuid(options.values["--chat-id"]),
+      afterId: nonNegativeInteger(options.values["--after-message-id"]),
+    };
   }
   if (args[0] === "chat" && args[1] === "capabilities" && args.length === 3) {
     return { action: "chat_capabilities", json, target: args[2]! };
@@ -633,5 +678,5 @@ function usageError(): TeamClawsError {
 }
 
 export function helpText(): string {
-  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws login [email] [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
+  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws login [email] [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
 }

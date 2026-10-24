@@ -3,6 +3,8 @@ import { OUTPUT_SCHEMA_VERSION } from "./constants.js";
 import type { TeamClawsError } from "./errors.js";
 import type {
   AgentAction,
+  ChatHistoryEntry,
+  ChatHistoryMessage,
   CapabilityInventory,
   ExternalChatHandoff,
   PairingStatus,
@@ -308,6 +310,45 @@ export class Output {
         ? `Snapshot generated: ${generatedAt}.\n`
         : "Generation time is not supplied by the capabilities endpoint.\n",
     );
+  }
+
+  chatHistory(chats: ChatHistoryEntry[], nextAfterId: number | null): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "chat_history",
+      status: "success",
+      source: "workspace",
+      chats,
+      next_after_id: nextAfterId,
+    });
+    if (!this.json)
+      for (const chat of chats)
+        this.stdout.write(
+          `${chat.chat_id} — ${chat.name} — ${chat.owner_conversation_url}\n`,
+        );
+  }
+
+  chatMessages(
+    chatId: string,
+    messages: ChatHistoryMessage[],
+    latestMessageId: number,
+    hasMore: boolean,
+  ): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "chat_messages",
+      status: "success",
+      source: "workspace",
+      chat_id: chatId,
+      messages,
+      latest_message_id: latestMessageId,
+      has_more: hasMore,
+    });
+    if (!this.json)
+      for (const message of messages)
+        this.stdout.write(
+          `${message.id} ${message.role}: ${message.body_text}\n`,
+        );
   }
 
   chatSessionsList(

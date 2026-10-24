@@ -16,6 +16,8 @@ import {
 } from "./target-authorization.js";
 import type {
   CapabilityInventory,
+  ChatHistoryEntry,
+  ChatHistoryMessage,
   ExternalChatHandoff,
   PairingTarget,
   StatusWorkspaceCredential,
@@ -355,6 +357,136 @@ export class ExternalChatClient {
       options.responseCursor,
       signal,
     );
+  }
+
+  private async historyCredential(
+    target: PairingTarget,
+    signal?: AbortSignal,
+  ): Promise<StatusWorkspaceCredential> {
+    const credential = await this.store.findWorkspace(target);
+    if (!credential)
+      throw new TeamClawsError(
+        "re_pair_required",
+        "No saved pairing was found for this workspace. Pair it first.",
+        { exitCode: 3 },
+      );
+    const response = await this.request(
+      `${credential.origin}/teamclaws-admin/api/device-pairings/me/`,
+      credential,
+      {},
+      [200],
+      signal,
+    );
+    parseVerifiedDevice(response.body, credential.device_id);
+    return credential;
+  }
+
+  async history(target: PairingTarget, signal?: AbortSignal): Promise<number> {
+    const credential = await this.historyCredential(target, signal);
+    let afterId = 0;
+    while (true) {
+      const response = await this.request(
+        `${credential.origin}/teamclaws-admin/api/device-chat/v1/chats/?after_id=${afterId}`,
+        credential,
+        {},
+        [200],
+        signal,
+      );
+      const body = response.body;
+      if (!isObject(body) || !Array.isArray(body.chats))
+        throw invalidChatResponse();
+      const chats: ChatHistoryEntry[] = body.chats.map((chat: unknown) => {
+        if (!isObject(chat)) throw invalidChatResponse();
+        const url = requireHttpsUrl(
+          chat.owner_conversation_url,
+          "conversation address",
+        );
+        if (url.origin !== credential.origin) throw invalidChatResponse();
+        return {
+          chat_id: validUuid(chat.chat_id),
+          name: historyText(chat.name),
+          surface: historyText(chat.surface),
+          created_at: historyText(chat.created_at),
+          updated_at: historyText(chat.updated_at),
+          archived_at:
+            chat.archived_at === null ? null : historyText(chat.archived_at),
+          deleted_at:
+            chat.deleted_at === null ? null : historyText(chat.deleted_at),
+          owner_conversation_url: url.toString(),
+        };
+      });
+      const next =
+        body.next_after_id === null
+          ? null
+          : requireInteger(
+              body.next_after_id,
+              "history cursor",
+              afterId + 1,
+              Number.MAX_SAFE_INTEGER,
+            );
+      if (next !== null && chats.length === 0) throw invalidChatResponse();
+      this.output.chatHistory(chats, next);
+      if (next === null) return 0;
+      afterId = next;
+    }
+  }
+
+  async messages(
+    target: PairingTarget,
+    chatId: string,
+    afterId: number,
+    signal?: AbortSignal,
+  ): Promise<number> {
+    chatId = validUuid(chatId);
+    const credential = await this.historyCredential(target, signal);
+    while (true) {
+      const response = await this.request(
+        `${credential.origin}/teamclaws-admin/api/device-chat/v1/chats/${chatId}/messages/?after_id=${afterId}`,
+        credential,
+        {},
+        [200],
+        signal,
+      );
+      const body = response.body;
+      if (
+        !isObject(body) ||
+        body.chat_id !== chatId ||
+        !Array.isArray(body.messages) ||
+        typeof body.has_more !== "boolean"
+      )
+        throw invalidChatResponse();
+      let previousId = afterId;
+      const messages: ChatHistoryMessage[] = body.messages.map(
+        (message: unknown) => {
+          if (!isObject(message)) throw invalidChatResponse();
+          const id = requireInteger(
+            message.id,
+            "message identifier",
+            previousId + 1,
+            Number.MAX_SAFE_INTEGER,
+          );
+          previousId = id;
+          return {
+            id,
+            role: historyText(message.role),
+            body_text: historyText(message.body_text),
+            status: historyText(message.status),
+            created_at: historyText(message.created_at),
+          };
+        },
+      );
+      const latest = requireInteger(
+        body.latest_message_id,
+        "message cursor",
+        afterId,
+        Number.MAX_SAFE_INTEGER,
+      );
+      if (latest !== previousId || (body.has_more && messages.length === 0))
+        throw invalidChatResponse();
+      this.output.chatMessages(chatId, messages, latest, body.has_more);
+      if (!body.has_more) return 0;
+      afterId = latest;
+    }
   }
 
   async list(target: PairingTarget, signal?: AbortSignal): Promise<number> {
@@ -996,6 +1128,11 @@ function requireOwnerUrl(value: unknown, origin: string): string {
 
 function validUuid(value: unknown): string {
   return normalizeUuid(value, "identifier");
+}
+
+function historyText(value: unknown): string {
+  if (typeof value !== "string") throw invalidChatResponse();
+  return value;
 }
 
 function invalidChatResponse(): TeamClawsError {

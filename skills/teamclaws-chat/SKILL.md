@@ -1,6 +1,6 @@
 ---
 name: teamclaws-chat
-description: Start, continue, or resume one external-agent TCChat through the official TeamClaws CLI after this computer is paired with the exact workspace.
+description: Read workspace chat history or start, continue, and resume an external-agent TCChat through the official TeamClaws CLI after this computer is paired with the exact workspace.
 ---
 
 # TeamClaws external chat
@@ -19,6 +19,37 @@ transport, idempotency, and durable request polling.
 - Use only an explicit stable server identifier or canonical workspace origin.
 - Treat the newline-delimited JSON as an allowlisted protocol. Never expose raw
   HTTP responses or provider-native identifiers.
+
+## Read chats and follow-up messages without a browser
+
+For conversation history, new messages, or follow-ups, use these read-only commands:
+
+```text
+teamclaws chat history <target> --json
+teamclaws chat messages <target> --chat-id <chat-public-uuid> --json
+teamclaws chat messages <target> --chat-id <chat-public-uuid> --after-message-id <last-read-id> --json
+```
+
+`chat history` queries the workspace and emits `chat_history` pages containing
+`chats`, including browser-created, archived, empty, and deleted chats. Use the
+returned `chat_id`, or the `chat_public_id` in the user's conversation URL, with
+`chat messages`. It emits `chat_messages` pages containing every returned role
+and message body, including owner follow-ups and subsequent agent replies.
+Both commands fetch every page automatically. Save the final
+`latest_message_id` to check for later messages. A successful empty messages
+result means no messages after that cursor in that chat at the time of the read.
+
+History access is standard for existing and new valid pairings. There is no
+optional history permission, browser approval, model selection, or new pairing
+step. The workspace owner's paired agents can read every user's chats on that
+workspace. Other paired agents, including superusers' agents, can read every
+chat belonging to their own user. The workspace enforces this distinction.
+
+`chat list` is a local request-reference index, not a workspace chat inventory.
+`chat watch` reads replies to one request, not later conversation turns. Do not
+use either as evidence that a conversation has no follow-ups. Never send a
+message, start another chat, or use the browser just to read history. An HTTP
+error or incomplete pagination is not evidence of an empty history.
 
 ## Start one conversation
 

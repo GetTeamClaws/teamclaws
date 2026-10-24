@@ -135,6 +135,25 @@ export type VerifiedWorkspace = {
   external_chat_handoff: ExternalChatHandoff;
 };
 
+export type ChatHistoryEntry = {
+  chat_id: string;
+  name: string;
+  surface: string;
+  created_at: string;
+  updated_at: string;
+  archived_at: string | null;
+  deleted_at: string | null;
+  owner_conversation_url: string;
+};
+
+export type ChatHistoryMessage = {
+  id: number;
+  role: string;
+  body_text: string;
+  status: string;
+  created_at: string;
+};
+
 export type CapabilityInventory = {
   contract_version: 1;
   identity: { alias: string };

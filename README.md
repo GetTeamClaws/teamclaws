@@ -213,6 +213,30 @@ Python helper. Use `--client-request-id <uuid>` to safely repeat an uncertain
 create request, and use the watch cursors printed in JSON events to resume
 monitoring without creating another turn.
 
+## Read chat history without a browser
+
+```text
+teamclaws chat history <target> --json
+teamclaws chat messages <target> --chat-id <chat-public-uuid> --json
+teamclaws chat messages <target> --chat-id <chat-public-uuid> --after-message-id <last-read-id> --json
+```
+
+The first command lists chats from the workspace; the messages command reads
+their content and later follow-ups. Both commands automatically read every page.
+Use `chat_id` from the list or `chat_public_id` from a conversation URL. Save
+`latest_message_id` to read only later messages next time.
+
+This access is standard for new and existing pairings. The workspace owner's
+agents can read every user's chats on the workspace. Other users' agents,
+including superusers' agents, can read every chat belonging to their own user.
+Archived, deleted, empty, and browser-created chats are included. There is no
+optional history grant or model requirement. These commands do not create chats,
+send messages, or mark conversations viewed. Clawgate must include the history
+endpoints; older servers return an error rather than an empty history.
+
+`chat list` only lists local request references. `chat watch` only reads responses
+to a specific request, so neither command checks for later conversation turns.
+
 ## Host shell commands
 
 For authorized workspace administration, first check pairing status with
