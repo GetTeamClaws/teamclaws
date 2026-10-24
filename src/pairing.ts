@@ -147,7 +147,6 @@ export class PairingClient {
       const grant = await this.authorization.requireGrant();
       if (
         credential.pairing_id !== credential.device_id ||
-        credential.server_id !== pending.server_id ||
         credential.origin !== pending.target.origin ||
         credential.requester_sub !== grant.sub ||
         credential.authorization_id !== grant.authorization_id ||

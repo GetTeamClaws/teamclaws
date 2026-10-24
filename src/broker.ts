@@ -164,13 +164,6 @@ export class BrokerClient {
       throw errorFromResponse(response, "pairing_start_failed");
     }
     const pending = parsePendingPairing(response.body);
-    if ("server_id" in target && pending.server_id !== target.server_id) {
-      throw new TeamClawsError(
-        "target_mismatch",
-        "TeamClaws resolved a different workspace than the one requested.",
-        { exitCode: 9 },
-      );
-    }
     if (
       "workspace_url" in target &&
       pending.target.origin !== new URL(target.workspace_url).origin
