@@ -306,6 +306,7 @@ retries inventories with no model choices within the shared budget, then returns
 `capabilities_unavailable` with exit code 5 if no choices become available.
 Each inventory attempt allows up to 60 seconds, including authorization;
 the shared discovery budget remains two minutes.
+Follow-up and resume capability checks use the same 60-second request limit.
 Chat creation and message submission also allow 60 seconds for server-side
 provider validation. A timed-out submission is never automatically resent.
 

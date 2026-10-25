@@ -584,7 +584,7 @@ export class ExternalChatClient {
     const capabilityResponse = await this.request(
       new URL(handoff.capabilities_url, `${credential.origin}/`).toString(),
       credential,
-      {},
+      { timeoutMs: 60_000 },
       [200],
       signal,
     );
