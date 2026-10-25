@@ -722,6 +722,7 @@ export class ExternalChatClient {
           url,
           credential,
           {
+            ...(options.method === "POST" ? { timeoutMs: 60_000 } : {}),
             ...options,
             headers: {
               ...options.headers,
