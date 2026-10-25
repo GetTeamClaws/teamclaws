@@ -304,6 +304,8 @@ a valid pairing. A pairing snapshot can contain an authorized empty inventory:
 `providers: []` and `recommended_selection: null`. Explicit capability discovery
 retries inventories with no model choices within the shared budget, then returns
 `capabilities_unavailable` with exit code 5 if no choices become available.
+Each inventory attempt allows up to 60 seconds, including authorization;
+the shared discovery budget remains two minutes.
 
 The timestamp describes snapshot generation, not an authorization lease. The
 existing refresh endpoint does not supply a generation timestamp. Chat requests

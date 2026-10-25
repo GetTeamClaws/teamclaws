@@ -199,7 +199,7 @@ export class ExternalChatClient {
       if (remainingAttempt < 1) break;
       const timeoutMs = Math.max(
         1,
-        Math.floor(Math.min(15_000, remainingAttempt)),
+        Math.floor(Math.min(60_000, remainingAttempt)),
       );
       const timeout = AbortSignal.timeout(timeoutMs);
       const attemptSignal = signal
