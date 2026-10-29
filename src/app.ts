@@ -18,11 +18,13 @@ import { CredentialStore } from "./storage.js";
 import { TargetAuthorization } from "./target-authorization.js";
 import type {
   PairingTarget,
+  MachineUserRole,
   ServerMetadataUpdate,
   ServerSummary,
 } from "./types.js";
 import { installRelease, type ReleaseCheck, type Release } from "./update.js";
 import { normalizeUuid, parsePairingTarget } from "./validation.js";
+import { runUsersAdd } from "./users.js";
 
 export type AppIo = {
   stdout?: Writable;
@@ -110,6 +112,26 @@ export async function run(
     store,
     dependencies.fetcher,
   );
+  if (parsed.action === "users_add") {
+    try {
+      await targetAuthorization.requireGrant();
+      const result = await runUsersAdd(
+        store,
+        dependencies.fetcher ?? fetch,
+        parsed.target,
+        parsed.email,
+        parsed.role,
+        targetAuthorization,
+        signal,
+      );
+      output.usersAddResult(result);
+      return 0;
+    } catch (error) {
+      const safe = safeError(error);
+      output.error(safe);
+      return safe.exitCode;
+    }
+  }
   const auth = new AuthService({
     store,
     output,
@@ -253,6 +275,13 @@ export async function run(
 
 type ParsedArguments =
   | {
+      action: "users_add";
+      json: boolean;
+      target: PairingTarget;
+      email: string;
+      role: MachineUserRole;
+    }
+  | {
       action: "servers_update";
       json: boolean;
       serverId: string;
@@ -331,6 +360,28 @@ export function parseArguments(arguments_: string[]): ParsedArguments {
   }
   const json = arguments_.includes("--json");
   const args = arguments_.filter((argument) => argument !== "--json");
+  if (args[0] === "users" && args[1] === "add") {
+    const target = parsePairingTarget(requiredPositional(args, 2));
+    const email = requiredPositional(args, 3).trim().toLowerCase();
+    const options = parseNamedOptions(args.slice(4), {
+      values: ["--role"],
+      booleans: [],
+    });
+    const role = options.values["--role"];
+    if (
+      !email ||
+      email.length > 254 ||
+      !["user", "staff", "superuser"].includes(role ?? "")
+    )
+      throw usageError();
+    return {
+      action: "users_add",
+      json,
+      target,
+      email,
+      role: role as MachineUserRole,
+    };
+  }
   if (args.length === 0 || args[0] === "--help" || args[0] === "-h")
     return { action: "help", json };
   if (args[0] === "--version" || args[0] === "-v")
@@ -678,5 +729,5 @@ function usageError(): TeamClawsError {
 }
 
 export function helpText(): string {
-  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws login [email] [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
+  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws users add <target> <email> --role <user|staff|superuser> [--json]\n  teamclaws login [email] [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
 }

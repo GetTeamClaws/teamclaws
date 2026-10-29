@@ -1,5 +1,16 @@
 export type JsonObject = Record<string, unknown>;
 
+export type MachineUserRole = "user" | "staff" | "superuser";
+
+export type UsersAddResult = {
+  ok: true;
+  code: "invited" | "already_pending" | "already_member" | "already_owner";
+  action: "add";
+  scope: "access_group";
+  email: string;
+  requested_role: MachineUserRole;
+};
+
 export type SafeUser = {
   id: string;
   display_name: string;

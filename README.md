@@ -172,6 +172,7 @@ npx teamclaws pair status <server-identifier-or-canonical-workspace-address>
 npx teamclaws pair
 npx teamclaws pair <server-identifier-or-canonical-workspace-address> [--no-open]
 npx teamclaws shell <target> --command <text> [--json]
+npx teamclaws users add <target> <email> --role <user|staff|superuser> [--json]
 npx teamclaws chat start <target> --message <text>
 npx teamclaws chat send <target> --session-id <uuid> --message <text>
 npx teamclaws chat watch <target> --session-id <uuid> --request-id <uuid>
@@ -212,6 +213,22 @@ credential through `www.teamclaws.com` or download and execute the generated
 Python helper. Use `--client-request-id <uuid>` to safely repeat an uncertain
 create request, and use the watch cursors printed in JSON events to resume
 monitoring without creating another turn.
+
+## Add a workspace user directly
+
+`teamclaws users add <target> <email> --role user --json` sends a direct request
+using the saved paired machine credential and its bound authorization. The role
+is required; supported roles are `user`, `staff`, and `superuser`. The server
+verifies current owner authority and the shared six-calendar-month machine
+authorization deadline. Initial CLI login and pairing remain the normal setup.
+
+This operation requires no agent, AI provider, chat, shell, skill, or browser
+session. Missing or inactive credentials return an error without opening a browser.
+The result's `requested_role` is the requested access, not a change to an existing
+member's role. `invited` means an invitation was sent; access starts after
+acceptance. Existing memberships and pending invitations are preserved without
+promotion or resend. If a request has an uncertain network outcome, inspect the
+invitation status before trying again; the command does not blindly retry it.
 
 ## Read chat history without a browser
 
@@ -304,11 +321,6 @@ a valid pairing. A pairing snapshot can contain an authorized empty inventory:
 `providers: []` and `recommended_selection: null`. Explicit capability discovery
 retries inventories with no model choices within the shared budget, then returns
 `capabilities_unavailable` with exit code 5 if no choices become available.
-Each inventory attempt allows up to 60 seconds, including authorization;
-the shared discovery budget remains two minutes.
-Follow-up and resume capability checks use the same 60-second request limit.
-Chat creation and message submission also allow 60 seconds for server-side
-provider validation. A timed-out submission is never automatically resent.
 
 The timestamp describes snapshot generation, not an authorization lease. The
 existing refresh endpoint does not supply a generation timestamp. Chat requests

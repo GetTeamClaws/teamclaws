@@ -12,6 +12,7 @@ import type {
   ServerMetadata,
   ServerSummary,
   WorkspaceCredential,
+  UsersAddResult,
 } from "./types.js";
 
 const LOGIN_ACCOUNT_GUIDANCE =
@@ -537,6 +538,23 @@ export class Output {
     }
     if (this.json) this.stdout.write(`${JSON.stringify(event)}\n`);
     else this.stderr.write(`Error: ${error.message}\n`);
+  }
+
+  usersAddResult(result: UsersAddResult): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "users_add_result",
+      ...result,
+    });
+    if (!this.json) {
+      const messages: Record<UsersAddResult["code"], string> = {
+        invited: `Invitation sent for ${result.requested_role} access. Access begins after acceptance.`,
+        already_pending: "An invitation is already pending; it was not resent.",
+        already_member: "Already a member; access unchanged.",
+        already_owner: "Already the owner; access unchanged.",
+      };
+      this.stdout.write(`${messages[result.code]}\n`);
+    }
   }
 
   private event(event: Record<string, unknown>): void {
