@@ -237,6 +237,14 @@ export class ExternalChatClient {
           );
         }
         const inventory = parseCapabilityInventory(response.body);
+        if (inventory.provider_availability?.code === "no_provider_paired") {
+          if (inventory.providers.length !== 0) throw invalidChatResponse();
+          throw new TeamClawsError(
+            "no_provider_paired",
+            `No AI provider is paired for this workspace. Open ${credential.origin}/teamclaws-admin/, choose Link AI Account, and connect a provider. For Cursor, choose Cursor, then My Subscription.`,
+            { exitCode: 5 },
+          );
+        }
         if (this.now() >= deadline) break;
         if (
           inventory.providers.some((provider) => provider.models.length > 0)
@@ -249,7 +257,10 @@ export class ExternalChatClient {
             external_chat_capabilities: inventory,
           };
         }
-        lastFailure = "The workspace returned no provider/model choices.";
+        lastFailure =
+          inventory.provider_availability?.code === "provider_unavailable"
+            ? "AI provider status is unavailable."
+            : "The workspace returned no provider/model choices.";
       } catch (error) {
         canceled();
         // Body reads occur outside requestJson's fetch catch; classify their
@@ -269,7 +280,7 @@ export class ExternalChatClient {
     canceled();
     throw new TeamClawsError(
       "capabilities_unavailable",
-      `${lastFailure} Log into TeamClaws and ensure the server is running.`,
+      `${lastFailure} Check workspace connectivity or the provider connections at ${credential.origin}/teamclaws-admin/ and retry.`,
       { exitCode: 5, retryable: true },
     );
   }
@@ -903,8 +914,27 @@ export function parseCapabilityInventory(value: unknown): CapabilityInventory {
     !Array.isArray(value.approved_scopes)
   )
     throw invalidChatResponse();
+  let availability: CapabilityInventory["provider_availability"];
+  if (value.provider_availability !== undefined) {
+    const state = value.provider_availability;
+    if (
+      !isObject(state) ||
+      !["ready", "no_provider_paired", "provider_unavailable"].includes(
+        String(state.code),
+      ) ||
+      state.setup_path !== "/teamclaws-admin/"
+    )
+      throw invalidChatResponse();
+    availability = {
+      code: state.code as NonNullable<
+        CapabilityInventory["provider_availability"]
+      >["code"],
+      setup_path: "/teamclaws-admin/",
+    };
+  }
   return {
     contract_version: 1,
+    ...(availability ? { provider_availability: availability } : {}),
     identity: {
       alias: requireString(
         value.identity.alias,

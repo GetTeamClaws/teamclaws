@@ -2,6 +2,19 @@ export type JsonObject = Record<string, unknown>;
 
 export type MachineUserRole = "user" | "staff" | "superuser";
 
+export type UsersListResult = {
+  ok: true;
+  action: "list";
+  scope: "access_group";
+  members: Array<{ email: string; role: MachineUserRole; is_owner: boolean }>;
+  invites: Array<{
+    email: string;
+    role: MachineUserRole;
+    status: "pending" | "accepted";
+    is_expired: boolean;
+  }>;
+};
+
 export type UsersAddResult = {
   ok: true;
   code: "invited" | "already_pending" | "already_member" | "already_owner";
@@ -167,6 +180,10 @@ export type ChatHistoryMessage = {
 
 export type CapabilityInventory = {
   contract_version: 1;
+  provider_availability?: {
+    code: "ready" | "no_provider_paired" | "provider_unavailable";
+    setup_path: "/teamclaws-admin/";
+  };
   identity: { alias: string };
   approved_scopes: string[];
   providers: Array<{

@@ -13,6 +13,7 @@ import type {
   ServerSummary,
   WorkspaceCredential,
   UsersAddResult,
+  UsersListResult,
 } from "./types.js";
 
 const LOGIN_ACCOUNT_GUIDANCE =
@@ -554,6 +555,29 @@ export class Output {
         already_owner: "Already the owner; access unchanged.",
       };
       this.stdout.write(`${messages[result.code]}\n`);
+    }
+  }
+
+  usersListResult(result: UsersListResult): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "users_list_result",
+      ...result,
+    });
+    if (!this.json) {
+      this.stdout.write("Current members:\n");
+      for (const member of result.members)
+        this.stdout.write(
+          `${member.email}: ${member.role}${member.is_owner ? " (owner)" : ""}\n`,
+        );
+      if (!result.members.length) this.stdout.write("No members returned.\n");
+      this.stdout.write("Invitations:\n");
+      for (const invite of result.invites)
+        this.stdout.write(
+          `${invite.email}: ${invite.status}${invite.is_expired && invite.status === "pending" ? " (expired)" : ""} — ${invite.role}\n`,
+        );
+      if (!result.invites.length)
+        this.stdout.write("No pending or accepted invitations.\n");
     }
   }
 

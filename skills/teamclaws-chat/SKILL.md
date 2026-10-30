@@ -51,6 +51,12 @@ use either as evidence that a conversation has no follow-ups. Never send a
 message, start another chat, or use the browser just to read history. An HTTP
 error or incomplete pagination is not evidence of an empty history.
 
+On `no_provider_paired`, explain that no AI provider is paired for this workspace.
+Open the verified workspace's `/teamclaws-admin/` page and choose **Link AI
+Account**. For Cursor, choose **Cursor**, then **My Subscription**, and complete
+browser authorization. Do not describe an unavailable inventory or a transport
+failure as proof that no provider is paired.
+
 ## Start one conversation
 
 Obtain a non-empty user message, then run:

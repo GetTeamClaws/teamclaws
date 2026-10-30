@@ -18,10 +18,11 @@ workspace user; user membership is a separate privilege.
 ## Installation
 
 Check `node --version` first. If it is below 22, upgrade Node.js to version 22
-or newer before installing. npm normally treats the package engine requirement
-as a warning; `npm install -g teamclaws@latest --engine-strict` rejects an
-unsupported Node.js version during installation. The CLI also refuses to run on
-Node.js below 22.
+or newer before installing. The install script rejects Node.js below 22 during
+an ordinary npm install. npm's `--ignore-scripts` or an installer policy that
+disables lifecycle scripts bypasses this install check; the CLI still refuses
+to run on Node.js below 22. `--engine-strict` also enforces the declared engine
+requirement without changing global npm settings.
 
 Install the published CLI:
 
@@ -239,6 +240,19 @@ acceptance. Existing memberships and pending invitations are preserved without
 promotion or resend. If a request has an uncertain network outcome, inspect the
 invitation status before trying again; the command does not blindly retry it.
 
+### Inspect users and invitation status
+
+```text
+teamclaws users list <target> --json
+```
+
+This read requires the current machine owner's active paired authorization.
+It lists current members separately from pending and accepted invitation
+records. An accepted invitation is historical evidence of acceptance; current
+membership determines whether the person still has access. An expired pending
+invitation is marked expired. Listing sends no invitations and changes no roles,
+memberships, or invitation state. It requires a workspace with the users-list API.
+
 ## Read chat history without a browser
 
 ```text
@@ -305,6 +319,12 @@ The package is licensed under the PolyForm Shield License 1.0.0. Paid service
 access is enforced by TeamClaws servers, not by the client license.
 
 ### Provider and model capabilities
+
+If the workspace confirms `no_provider_paired`, open its `/teamclaws-admin/`
+page, choose **Link AI Account**, and connect a provider. For Cursor, choose
+**Cursor**, then **My Subscription**, and complete browser authorization.
+An unavailable provider status or a transport failure does not prove that no
+provider is paired.
 
 Run `teamclaws chat capabilities <target> [--json]` with an existing saved
 workspace pairing. It reads the workspace capabilities endpoint with a shared
