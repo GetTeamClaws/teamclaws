@@ -37,6 +37,9 @@ or add another permission question for an already authorized step. Describe the
 separate server environment accurately; inspect an existing workspace before
 promising it is empty or that a particular isolation mechanism is configured.
 
+Pairing connects this computer to the workspace. It does not add a person as a
+workspace user; user membership is a separate privilege.
+
 ## Sign in
 
 Run `teamclaws auth status --json`. If signed in, confirm the returned account

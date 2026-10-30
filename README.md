@@ -5,6 +5,9 @@ with a TeamClaws workspace and stores the resulting Clawgate credential on that
 computer. The command-line client and its agent skills ship together in this
 package.
 
+Pairing connects this computer to the workspace. It does not add a person as a
+workspace user; user membership is a separate privilege.
+
 ## Requirements
 
 - Node.js 22 or newer
@@ -13,6 +16,12 @@ package.
 - x64 or ARM64
 
 ## Installation
+
+Check `node --version` first. If it is below 22, upgrade Node.js to version 22
+or newer before installing. npm normally treats the package engine requirement
+as a warning; `npm install -g teamclaws@latest --engine-strict` rejects an
+unsupported Node.js version during installation. The CLI also refuses to run on
+Node.js below 22.
 
 Install the published CLI:
 

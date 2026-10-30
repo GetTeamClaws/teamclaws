@@ -179,7 +179,11 @@ export async function npmRunner(
         const env = { ...process.env };
         for (const key of Object.keys(env)) {
           if (
-            /^npm_config_/i.test(key) ||
+            (/^npm_config_/i.test(key) &&
+              !(
+                args[0] === "prefix" &&
+                /^npm_config_(prefix|userconfig|globalconfig)$/i.test(key)
+              )) ||
             /^(NODE_OPTIONS|NODE_PATH)$/i.test(key)
           )
             delete env[key];

@@ -20,6 +20,9 @@ carry that task through instead of restarting a generic onboarding conversation.
 Inspect the destination's instructions, available runtimes, resources, network
 access, and account permissions through the paired shell before choosing a setup.
 
+Pairing connects this computer to the workspace. It does not add a person as a
+workspace user; user membership is a separate privilege.
+
 ## Jobs, services, and external systems
 
 For a complete job, place its code and authorized inputs in a dedicated directory,

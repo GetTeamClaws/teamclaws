@@ -122,6 +122,9 @@ and the selected access behavior before providing a working URL.
 
 ## Share work with other people
 
+Pairing connects this computer to the workspace. It does not add a person as a
+workspace user; user membership is a separate privilege.
+
 Distinguish inviting someone to a workspace from sharing a project's web
 address. Workspace collaboration depends on the supported TeamClaws sharing
 controls and the recipient's assigned access. A public app URL is available

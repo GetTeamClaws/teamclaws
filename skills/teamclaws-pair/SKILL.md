@@ -11,6 +11,9 @@ For the full install-and-connect conversation, follow
 Use the official `teamclaws` executable. Do not implement pairing inside this
 skill.
 
+Pairing connects this computer to the workspace. It does not add a person as a
+workspace user; user membership is a separate privilege.
+
 ## Required boundary
 
 - If workspace discovery was performed through a model context protocol client,

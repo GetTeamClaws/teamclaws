@@ -16,6 +16,9 @@ pairing approval come next when they are connecting a workspace. If onboarding
 already explained the process, use a short transition into this step. Give the
 approval link with that context, never as an unexplained authorization request.
 
+Pairing connects this computer to the workspace. It does not add a person as a
+workspace user; user membership is a separate privilege.
+
 Use the official executable:
 
 ```text

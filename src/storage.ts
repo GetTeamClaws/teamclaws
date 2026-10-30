@@ -199,6 +199,17 @@ export class CredentialStore {
       dirname(directory),
       directory,
     ]) {
+      const info = await lstat(path);
+      if (
+        this.platform !== "win32" &&
+        info.isDirectory() &&
+        !info.isSymbolicLink() &&
+        info.uid === process.getuid?.() &&
+        (info.mode & 0o077) !== 0
+      )
+        throw conversationStorageError(
+          `Directory ${JSON.stringify(path)} has mode ${(info.mode & 0o777).toString(8).padStart(4, "0")}; mode 0700 is required. Run chmod 700 '${path.replaceAll("'", "'\\''")}' and retry. `,
+        );
       await this.assertPrivateDirectory(path);
     }
   }
@@ -228,7 +239,12 @@ export class CredentialStore {
         records.push(record);
       }
       return records.sort((a, b) => b.updated_at.localeCompare(a.updated_at));
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof TeamClawsError &&
+        error.code === "chat_reference_storage_failed"
+      )
+        throw error;
       throw conversationStorageError();
     }
   }
@@ -591,10 +607,10 @@ function parseConversationReference(
   };
 }
 
-function conversationStorageError(): TeamClawsError {
+function conversationStorageError(detail = ""): TeamClawsError {
   return new TeamClawsError(
     "chat_reference_storage_failed",
-    "The local conversation references could not be read or saved safely. Retain any returned session/request identifiers; do not resend the message automatically.",
+    `${detail}The local conversation references could not be read or saved safely. Retain any returned session/request identifiers; do not resend the message automatically.`,
     { exitCode: 9 },
   );
 }

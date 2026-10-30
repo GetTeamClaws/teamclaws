@@ -107,7 +107,8 @@ export class OsMachineKeyProvider implements MachineKeyProvider {
       await mkdir(directory, { recursive: true, mode: 0o700 });
       await assertPrivateDirectory(directory);
       return directory;
-    } catch {
+    } catch (error) {
+      if (error instanceof TeamClawsError) throw error;
       throw keyUnavailable();
     }
   }
@@ -206,7 +207,8 @@ export class OsMachineKeyProvider implements MachineKeyProvider {
         key: privateKey,
         dsaEncoding: "ieee-p1363",
       }).toString("base64url");
-    } catch {
+    } catch (error) {
+      if (error instanceof TeamClawsError) throw error;
       throw keyUnavailable();
     }
   }
@@ -217,10 +219,16 @@ async function assertPrivateDirectory(path: string): Promise<void> {
   if (
     !info.isDirectory() ||
     info.isSymbolicLink() ||
-    info.uid !== process.getuid?.() ||
-    (info.mode & 0o777) !== 0o700
+    info.uid !== process.getuid?.()
   )
     throw keyUnavailable();
+  const mode = info.mode & 0o777;
+  if (mode !== 0o700)
+    throw new TeamClawsError(
+      "machine_key_unavailable",
+      `The machine-key directory ${JSON.stringify(path)} has mode ${mode.toString(8).padStart(4, "0")}; mode 0700 is required. Run chmod 700 '${path.replaceAll("'", "'\\''")}' and retry.`,
+      { exitCode: 9 },
+    );
 }
 
 async function assertPrivateFile(path: string): Promise<void> {

@@ -1,5 +1,7 @@
 import { parseArguments, run, type AppDependencies } from "./app.js";
 import { checkRelease, releaseNotice, type ReleaseCheck } from "./update.js";
+import { TeamClawsError } from "./errors.js";
+import { Output } from "./output.js";
 
 export async function runCli(
   args: string[],
@@ -7,6 +9,19 @@ export async function runCli(
   signal?: AbortSignal,
   check: (signal?: AbortSignal) => Promise<ReleaseCheck> = checkRelease,
 ): Promise<number> {
+  if (Number(process.versions.node.split(".")[0]) < 22) {
+    const error = new TeamClawsError(
+      "unsupported_runtime",
+      `TeamClaws requires Node.js 22 or newer; this runtime is ${process.versions.node}. Upgrade Node.js, then run npm install -g teamclaws@latest.`,
+      { exitCode: 9 },
+    );
+    new Output(
+      args.includes("--json"),
+      dependencies.io?.stdout,
+      dependencies.io?.stderr,
+    ).error(error);
+    return error.exitCode;
+  }
   // No persistent cache: every executable invocation checks before dispatch.
   let releaseCheck: ReleaseCheck;
   try {
