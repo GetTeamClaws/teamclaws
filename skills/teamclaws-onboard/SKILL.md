@@ -22,7 +22,9 @@ user's work and any steps already completed:
 1. First, we'll sign this computer into your TeamClaws account using your browser.
    This lets the TeamClaws command-line client here connect to your account.
 2. Next, you'll choose a workspace, and we'll pair this computer with that server.
-   You'll approve that connection in your browser too. Pairing gives this computer
+   Pairing completes automatically when TeamClawsDeploy confirms you own the
+   workspace or are a superuser in its access group. Follow browser approval
+   only if the CLI requests it. Pairing gives this computer
    access to run commands and work with files on the workspace.
 3. Then we'll find the best work to move there and set up a clean environment for
    it, separate from your laptop. That could be a complete job, an agent, a service

@@ -11,8 +11,9 @@ A status-only request runs only `teamclaws auth status --json` and stops.
 
 Before starting browser login, explain that the user will sign this computer's
 TeamClaws command-line client into their TeamClaws account through the browser.
-This connects the client to their account; workspace selection and browser
-pairing approval come next when they are connecting a workspace. If onboarding
+This connects the client to their account; workspace selection and pairing come
+next when they are connecting a workspace. Pairing may complete automatically;
+show browser approval only if the CLI requests it. If onboarding
 already explained the process, use a short transition into this step. Give the
 approval link with that context, never as an unexplained authorization request.
 

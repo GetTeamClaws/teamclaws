@@ -56,7 +56,7 @@ teamclaws pair <stable-server-identifier> --json
 ```
 
 Use `--no-open` only when automatic browser opening is undesirable. The
-`pairing_browser_required` event still provides the safe approval address.
+`pairing_browser_required` event provides the safe approval address when approval is needed.
 
 When no selected stable identifier is known, run `teamclaws servers list --json`,
 show each server's display name (`alias`), returned `description`, and readiness,
@@ -71,11 +71,13 @@ workspaces; use the onboarding skill's discovery rules.
 
 ## Wait for approval and continue automatically
 
-Before starting the command, explain that the next browser approval pairs this
-computer with the selected workspace. Name that workspace and explain that the
+Before starting the command, explain that pairing connects this computer with
+the selected workspace. TeamClawsDeploy authorizes automatic pairing for its
+owner or a superuser in the workspace's access group. Follow browser approval
+only if the CLI requests it. Name that workspace and explain that the
 connection gives this computer access to run commands and work with its files.
 Connect the step to the user's intended work, and say you'll keep waiting and
-continue automatically after approval. Use a short transition if onboarding
+continue automatically after pairing. Use a short transition if onboarding
 already introduced the process; the approval link should never arrive without
 an explanation of what the user is authorizing.
 
@@ -145,7 +147,7 @@ teamclaws pair status <stable-server-identifier-or-canonical-workspace-address> 
 ```
 
 If it reports `not_paired`, follow the login and pairing flow above for that
-selected workspace; pairing requires the normal browser and owner approval. Do not use
+selected workspace; follow browser approval only if `pairing_browser_required` is emitted. Do not use
 another workspace's pairing or bypass approval. After `paired` is verified,
 authorized host commands can use the existing paired shell:
 

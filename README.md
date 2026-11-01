@@ -55,11 +55,15 @@ the existing paired shell. Status-only requests do not start onboarding.
 
 Before any browser authorization, the agent explains the process: sign this
 computer's CLI into the user's TeamClaws account through the browser, choose a
-workspace and approve pairing with that server in the browser, then choose useful
+workspace and pair with that server, then choose useful
 work and set up its environment on the server. It explains the purpose and access
 of each approval before presenting a link, adapting to steps already completed.
 The conversation starts with that context rather than an unexplained request to
 click an authorization link.
+
+Pairing completes automatically when TeamClawsDeploy confirms the account owns
+the workspace or is a superuser in its access group. Browser approval is shown
+only when the target reports that approval is pending.
 
 Agents keep their turn and the original login/pairing process alive while the
 user approves in the browser, monitor its output, and continue automatically
@@ -89,7 +93,8 @@ Existing event names and schema version remain unchanged. The
 login keeps running. Signed-out `auth_status` includes the non-executing
 `login_command: "teamclaws login --json"`; status never starts device authorization.
 
-`pairing_browser_required` supplies the safe approval URL and public `user_code`.
+When approval is pending, `pairing_browser_required` supplies the safe approval
+URL and public `user_code`. Automatic pairing emits no browser approval event.
 Some hosts include a validated `agent_action` with the legacy type
 `deliver_and_stop`. The agent displays its approval message and continues
 monitoring the original process; that field does not end the agent's turn. The
@@ -281,7 +286,8 @@ to a specific request, so neither command checks for later conversation turns.
 
 For authorized workspace administration, first check pairing status with
 `teamclaws pair status <target> --json`. If `not_paired`, complete CLI login and pairing
-approval for that workspace before using the shell. A linked AI provider or
+for that workspace before using the shell, following browser approval only when
+requested by the CLI. A linked AI provider or
 TCChat conversation is not required for paired-shell access; remote chat is a
 separate operation.
 

@@ -135,15 +135,9 @@ export class PairingClient {
     noOpen: boolean,
     signal?: AbortSignal,
   ): Promise<void> {
-    this.output.pairingBrowser(
-      pending.verification_uri_complete,
-      pending.user_code,
-      pending.agent_action,
-    );
-    if (!noOpen) await this.openBrowser(pending.verification_uri_complete);
     let credential: PairingCredential | undefined;
     try {
-      credential = await this.poll(pending, signal);
+      credential = await this.poll(pending, noOpen, signal);
       const grant = await this.authorization.requireGrant();
       if (
         credential.pairing_id !== credential.device_id ||
@@ -219,10 +213,12 @@ export class PairingClient {
 
   private async poll(
     pending: PendingPairing,
+    noOpen: boolean,
     signal?: AbortSignal,
   ): Promise<PairingCredential> {
     const deadline = this.now() + pending.expires_in * 1_000;
     let intervalSeconds = pending.interval;
+    let approvalShown = false;
     const pollUrl = directTargetUrl(
       pending.target,
       pending.target.token_poll_path,
@@ -239,6 +235,16 @@ export class PairingClient {
       if (response.status >= 200 && response.status < 300) {
         if (response.status === 202) {
           intervalSeconds = pendingInterval(response, intervalSeconds);
+          if (!approvalShown) {
+            this.output.pairingBrowser(
+              pending.verification_uri_complete,
+              pending.user_code,
+              pending.agent_action,
+            );
+            approvalShown = true;
+            if (!noOpen)
+              await this.openBrowser(pending.verification_uri_complete);
+          }
           await this.wait(intervalSeconds * 1_000, signal);
           continue;
         }
