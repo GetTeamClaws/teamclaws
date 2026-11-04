@@ -580,7 +580,6 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
       },
     );
   }
-  assertExactKeys(value, ["servers"], ["workspace_count"], "server list");
   if (!Array.isArray(value.servers)) {
     throw new TeamClawsError(
       "invalid_response",
@@ -609,12 +608,6 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
         },
       );
     }
-    assertExactKeys(
-      server,
-      ["id", "alias", "workspace_url", "status", "pairing_ready"],
-      ["description", "custom_alias", "can_edit_metadata"],
-      "server",
-    );
     if (typeof server.pairing_ready !== "boolean") {
       throw new TeamClawsError(
         "invalid_response",
@@ -647,8 +640,39 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
         { exitCode: 9 },
       );
     }
+    if (
+      server.is_free !== undefined &&
+      server.is_free !== null &&
+      typeof server.is_free !== "boolean"
+    ) {
+      throw new TeamClawsError(
+        "invalid_response",
+        "TeamClaws returned an invalid free subscription status.",
+        { exitCode: 9 },
+      );
+    }
     return {
       server_id: normalizeUuid(server.id),
+      ...(server.tier_name !== undefined
+        ? {
+            tier_name:
+              server.tier_name === null
+                ? null
+                : requireString(server.tier_name, "subscription tier", 200),
+          }
+        : {}),
+      ...(server.is_free !== undefined ? { is_free: server.is_free } : {}),
+      ...(server.free_expires_at !== undefined
+        ? {
+            free_expires_at:
+              server.free_expires_at === null
+                ? null
+                : requireIsoDate(
+                    server.free_expires_at,
+                    "free subscription expiry",
+                  ),
+          }
+        : {}),
       alias: requireString(server.alias, "server alias", 200),
       ...(typeof server.description === "string"
         ? { description: server.description }

@@ -53,7 +53,7 @@ export class BrokerClient {
   }
 
   async servers(signal?: AbortSignal): Promise<WorkspaceInventory> {
-    const url = `${API_BASE}servers/?include_inventory=1&include_description=1&include_editable_metadata=1`;
+    const url = `${API_BASE}servers/?include_inventory=1&include_description=1&include_editable_metadata=1&include_subscription=1`;
     const response = await requestJson(this.fetcher, url, {
       headers: await this.issuerHeaders("GET", url),
       ...(signal ? { signal } : {}),

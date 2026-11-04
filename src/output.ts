@@ -121,11 +121,31 @@ export class Output {
   }
 
   servers(servers: ServerSummary[], workspaceCount?: number): void {
+    const now = Date.now();
+    const warnings = servers.flatMap((server) => {
+      if (server.is_free !== true || !server.free_expires_at) return [];
+      const remaining = Date.parse(server.free_expires_at) - now;
+      if (remaining > 7 * 24 * 60 * 60 * 1_000) return [];
+      const expired = remaining <= 0;
+      return [
+        {
+          server_id: server.server_id,
+          code: expired
+            ? "free_subscription_expired"
+            : "free_subscription_expiring",
+          free_expires_at: server.free_expires_at,
+          message: expired
+            ? `Free access for ${server.alias} expired on ${server.free_expires_at}.`
+            : `Free access for ${server.alias} expires on ${server.free_expires_at} (within 7 days).`,
+        },
+      ];
+    });
     this.event({
       schema_version: OUTPUT_SCHEMA_VERSION,
       event: "servers_list",
       status: "success",
       servers,
+      warnings,
       workspace_count: workspaceCount ?? null,
       discovery_state:
         workspaceCount === 0
@@ -150,6 +170,17 @@ export class Output {
           `${index + 1}. ${server.alias} — ${server.server_id} — ${server.workspace_url} — ${server.pairing_ready ? "ready to pair" : "not ready to pair"}\n`,
         );
         if (server.description) this.stdout.write(`   ${server.description}\n`);
+        if (server.tier_name)
+          this.stdout.write(`   Tier: ${server.tier_name}\n`);
+        if (server.is_free === true) {
+          this.stdout.write(
+            `   Free access${server.free_expires_at ? `; expires ${server.free_expires_at}` : ""}\n`,
+          );
+        }
+        const warning = warnings.find(
+          (item) => item.server_id === server.server_id,
+        );
+        if (warning) this.stdout.write(`   Warning: ${warning.message}\n`);
       });
     }
   }

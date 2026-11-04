@@ -36,6 +36,9 @@ export type ServerSummary = {
   description?: string;
   custom_alias?: string;
   can_edit_metadata?: boolean;
+  tier_name?: string | null;
+  is_free?: boolean | null;
+  free_expires_at?: string | null;
   workspace_url: string;
   status: string;
   pairing_ready: boolean;
