@@ -6,12 +6,18 @@ export type UsersListResult = {
   ok: true;
   action: "list";
   scope: "access_group";
-  members: Array<{ email: string; role: MachineUserRole; is_owner: boolean }>;
+  members: Array<{
+    email: string;
+    role: MachineUserRole;
+    is_owner: boolean;
+    sudo_enabled?: boolean;
+  }>;
   invites: Array<{
     email: string;
     role: MachineUserRole;
     status: "pending" | "accepted";
     is_expired: boolean;
+    sudo_enabled?: boolean;
   }>;
 };
 
@@ -22,6 +28,7 @@ export type UsersAddResult = {
   scope: "access_group";
   email: string;
   requested_role: MachineUserRole;
+  sudo_enabled?: boolean;
 };
 
 export type SafeUser = {

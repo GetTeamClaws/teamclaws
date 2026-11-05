@@ -32,6 +32,8 @@ const failureMessages: Record<string, string> = {
     "The owner must meet the existing MFA policy before adding users.",
   invalid_email: "Enter a valid email address.",
   invalid_role: "Choose user, staff, or superuser access.",
+  invalid_sudo_enabled: "Sudo access must be a boolean.",
+  sudo_requires_superuser: "Sudo access can only accompany superuser access.",
   invalid_request: "The workspace rejected the add-user request.",
   invite_delivery_failed:
     "The invitation could not be delivered. Check its status before retrying.",
@@ -123,13 +125,17 @@ export async function runUsersList(
       !isObject(row) ||
       !validEmail(row.email) ||
       !roles.includes(String(row.role)) ||
-      typeof row.is_owner !== "boolean"
+      typeof row.is_owner !== "boolean" ||
+      (row.sudo_enabled !== undefined && typeof row.sudo_enabled !== "boolean")
     )
       throw invalid();
     return {
       email: row.email,
       role: row.role as MachineUserRole,
       is_owner: row.is_owner,
+      ...(typeof row.sudo_enabled === "boolean"
+        ? { sudo_enabled: row.sudo_enabled }
+        : {}),
     };
   });
   const invites = body.invites.map((row: unknown) => {
@@ -138,7 +144,8 @@ export async function runUsersList(
       !validEmail(row.email) ||
       !roles.includes(String(row.role)) ||
       !["pending", "accepted"].includes(String(row.status)) ||
-      typeof row.is_expired !== "boolean"
+      typeof row.is_expired !== "boolean" ||
+      (row.sudo_enabled !== undefined && typeof row.sudo_enabled !== "boolean")
     )
       throw invalid();
     return {
@@ -146,6 +153,9 @@ export async function runUsersList(
       role: row.role as MachineUserRole,
       status: row.status as "pending" | "accepted",
       is_expired: row.is_expired,
+      ...(typeof row.sudo_enabled === "boolean"
+        ? { sudo_enabled: row.sudo_enabled }
+        : {}),
     };
   });
   return { ok: true, action: "list", scope: "access_group", members, invites };
@@ -157,6 +167,7 @@ export async function runUsersAdd(
   target: PairingTarget,
   email: string,
   role: MachineUserRole,
+  sudoEnabled: boolean,
   authorization: TargetAuthorization,
   signal?: AbortSignal,
 ): Promise<UsersAddResult> {
@@ -177,7 +188,7 @@ export async function runUsersAdd(
       credential,
       {
         method: "POST",
-        body: { email, role },
+        body: { email, role, ...(sudoEnabled ? { sudo_enabled: true } : {}) },
         timeoutMs: 60_000,
         ...(signal ? { signal } : {}),
       },
@@ -228,6 +239,10 @@ export async function runUsersAdd(
     body.scope !== "access_group" ||
     body.email !== email ||
     body.requested_role !== role ||
+    (body.sudo_enabled !== undefined &&
+      typeof body.sudo_enabled !== "boolean") ||
+    (sudoEnabled && typeof body.sudo_enabled !== "boolean") ||
+    (sudoEnabled && body.code === "invited" && body.sudo_enabled !== true) ||
     !(
       (response.status === 201 && body.code === "invited") ||
       (response.status === 200 &&
@@ -249,5 +264,8 @@ export async function runUsersAdd(
     scope: "access_group",
     email,
     requested_role: role,
+    ...(typeof body.sudo_enabled === "boolean"
+      ? { sudo_enabled: body.sudo_enabled }
+      : {}),
   };
 }

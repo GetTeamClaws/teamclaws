@@ -580,7 +580,7 @@ export class Output {
     });
     if (!this.json) {
       const messages: Record<UsersAddResult["code"], string> = {
-        invited: `Invitation sent for ${result.requested_role} access. Access begins after acceptance.`,
+        invited: `Invitation sent for ${result.requested_role} access${result.sudo_enabled === true ? " with sudo" : result.sudo_enabled === false ? " without sudo" : ""}. Access begins after acceptance.`,
         already_pending: "An invitation is already pending; it was not resent.",
         already_member: "Already a member; access unchanged.",
         already_owner: "Already the owner; access unchanged.",
@@ -599,13 +599,13 @@ export class Output {
       this.stdout.write("Current members:\n");
       for (const member of result.members)
         this.stdout.write(
-          `${member.email}: ${member.role}${member.is_owner ? " (owner)" : ""}\n`,
+          `${member.email}: ${member.role}${member.is_owner ? " (owner)" : ""}${member.sudo_enabled === true ? " — sudo enabled" : member.sudo_enabled === false ? " — sudo disabled" : ""}\n`,
         );
       if (!result.members.length) this.stdout.write("No members returned.\n");
       this.stdout.write("Invitations:\n");
       for (const invite of result.invites)
         this.stdout.write(
-          `${invite.email}: ${invite.status}${invite.is_expired && invite.status === "pending" ? " (expired)" : ""} — ${invite.role}\n`,
+          `${invite.email}: ${invite.status}${invite.is_expired && invite.status === "pending" ? " (expired)" : ""} — ${invite.role}${invite.sudo_enabled === true ? " — sudo enabled" : invite.sudo_enabled === false ? " — sudo disabled" : ""}\n`,
         );
       if (!result.invites.length)
         this.stdout.write("No pending or accepted invitations.\n");

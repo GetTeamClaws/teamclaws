@@ -202,7 +202,7 @@ npx teamclaws pair status <server-identifier-or-canonical-workspace-address>
 npx teamclaws pair
 npx teamclaws pair <server-identifier-or-canonical-workspace-address> [--no-open]
 npx teamclaws shell <target> --command <text> [--json]
-npx teamclaws users add <target> <email> --role <user|staff|superuser> [--json]
+npx teamclaws users add <target> <email> --role <user|staff|superuser> [--sudo] [--json]
 npx teamclaws chat start <target> --message <text>
 npx teamclaws chat send <target> --session-id <uuid> --message <text>
 npx teamclaws chat watch <target> --session-id <uuid> --request-id <uuid>
@@ -260,6 +260,19 @@ acceptance. Existing memberships and pending invitations are preserved without
 promotion or resend. If a request has an uncertain network outcome, inspect the
 invitation status before trying again; the command does not blindly retry it.
 
+The owner can include `--sudo` when inviting a `superuser` to grant full sudo
+access after acceptance:
+
+```text
+teamclaws users add <target> <email> --role superuser --sudo
+```
+
+Omitting `--sudo` requests no sudo grant. The flag is rejected for `user` and
+`staff` roles. Sudo follows the existing access-group membership. The CLI
+requires the workspace to acknowledge the saved sudo selection before reporting
+a new sudo invitation as successful. Existing members and pending invitations
+remain unchanged even when the flag is supplied.
+
 ### Inspect users and invitation status
 
 ```text
@@ -272,6 +285,9 @@ records. An accepted invitation is historical evidence of acceptance; current
 membership determines whether the person still has access. An expired pending
 invitation is marked expired. Listing sends no invitations and changes no roles,
 memberships, or invitation state. It requires a workspace with the users-list API.
+When supplied by the workspace, each entry includes its saved `sudo_enabled`
+status. An accepted invitation's selection is historical; the current member's
+status determines their current access.
 
 ## Read chat history without a browser
 
