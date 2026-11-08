@@ -52,7 +52,7 @@ export class TargetAuthorization {
     if (!grant)
       throw new TeamClawsError(
         "login_required",
-        "Approve this CLI at TeamClaws with `teamclaws login` before using a workspace.",
+        "Approve this CLI at TeamClaws with `teamclaws login <email>` before using a workspace.",
         { exitCode: 3 },
       );
     return grant;

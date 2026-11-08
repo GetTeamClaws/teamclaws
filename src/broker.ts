@@ -61,7 +61,7 @@ export class BrokerClient {
     if (response.status === 401) {
       throw new TeamClawsError(
         "invalid_authentication",
-        "The TeamClaws CLI authorization is inactive. Run `teamclaws login` to authorize this computer again.",
+        "The TeamClaws CLI authorization is inactive. Run `teamclaws login <email>` to authorize this computer again.",
         {
           exitCode: 3,
         },

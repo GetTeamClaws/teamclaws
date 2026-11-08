@@ -46,8 +46,9 @@ workspace user; user membership is a separate privilege.
 
 Run `teamclaws auth status --json`. If signed in, confirm the returned account
 and continue without another login. If signed out, follow
-[teamclaws-login](../teamclaws-login/SKILL.md): start `teamclaws login --json`
-without an email unless the user explicitly supplied one. Immediately show the
+[teamclaws-login](../teamclaws-login/SKILL.md): ask for the user's TeamClaws email
+if they have not provided it, wait for their answer, then start
+`teamclaws login <email> --json` with that address. Immediately show the
 returned `login_browser_required.url` as **Sign in to TeamClaws** in chat and
 explain:
 

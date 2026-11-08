@@ -92,7 +92,8 @@ export class Output {
       event: "auth_status",
       status,
     };
-    if (status === "signed_out") event.login_command = "teamclaws login --json";
+    if (status === "signed_out")
+      event.login_command = "teamclaws login <email> --json";
     if (user) event.user = user;
     if (expiresAt) event.expires_at = expiresAt;
     this.event(event);
@@ -100,7 +101,7 @@ export class Output {
       this.stdout.write(
         status === "signed_in" && user
           ? `Signed in as ${user.display_name} (${user.email}).\n`
-          : "Not signed in to TeamClaws. Run `teamclaws login` to sign in.\n",
+          : "Not signed in to TeamClaws. Run `teamclaws login <email>` to sign in.\n",
       );
     }
   }

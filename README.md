@@ -91,7 +91,7 @@ Existing event names and schema version remain unchanged. The
 `login_browser_required` event provides the safe `url`, a `label` of
 `Sign in to TeamClaws`, and `account_guidance`. Display these immediately while
 login keeps running. Signed-out `auth_status` includes the non-executing
-`login_command: "teamclaws login --json"`; status never starts device authorization.
+`login_command: "teamclaws login <email> --json"`; status never starts device authorization.
 
 When approval is pending, `pairing_browser_required` supplies the safe approval
 URL and public `user_code`. Automatic pairing emits no browser approval event.
@@ -192,7 +192,6 @@ a crash after that claim may consume it before it is displayed.
 ## Commands
 
 ```text
-npx teamclaws login
 npx teamclaws login <email>
 npx teamclaws auth status
 npx teamclaws logout
@@ -213,7 +212,8 @@ newline-delimited JSON event stream intended for automation.
 
 Pairing (including explicit targets), server listing, pair status, chat, and shell
 require a saved TeamClaws CLI authorization and its local machine key. Run
-`teamclaws login` first. Login uses the browser approval to bind a new key to
+`teamclaws login <email>` first. Email is required; agents must ask for the user's TeamClaws email if it has not
+been provided before starting login. Login uses the browser approval to bind a new key to
 your TeamClaws account; the CLI discards the temporary OAuth tokens. Later
 commands sign fresh proofs without repeating browser approval. Missing or
 revoked authorization exits with code 3 in both human and JSON modes. Help,

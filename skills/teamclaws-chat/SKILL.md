@@ -135,7 +135,7 @@ invent a new idempotency key to hide uncertainty about whether a turn exists.
 ## Failure handling
 
 - `login_required` or `invalid_authentication` (exit 3): tell the user to run
-  `teamclaws login` and stop; retain the existing workspace pairing.
+  `teamclaws login <email>` and stop; retain the existing workspace pairing.
 - `re_pair_required`: direct the user to TCChat Pair & Transfer.
 - `selection_unavailable`: use the advertised recommendation unless the user
   asks for another valid selection.

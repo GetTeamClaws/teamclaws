@@ -23,7 +23,6 @@ workspace user; user membership is a separate privilege.
 Use the official executable:
 
 ```text
-npx teamclaws login --json
 npx teamclaws login owner@example.com --json
 npx teamclaws auth status --json
 npx teamclaws logout --json
@@ -41,8 +40,11 @@ wakeup that preserves the process; report a limitation if neither is possible.
 Confirm the returned account after `login_complete` and exit 0, then immediately
 resume the authorized onboarding or pairing task. Denial, expiry, cancellation,
 and failure end the attempt; report the result without automatically restarting.
-Start without an email unless the user supplies one. Optional email is a bind
-sent to TeamClaws, not identity asserted by this process. Never transfer a
+An email address is required. If the user has not provided their TeamClaws email,
+ask for it and wait for their answer before starting login. Do not guess it from
+their AI assistant account or invent an address. Pass the supplied email to
+`teamclaws login <email> --json`. The email binds approval to that account; it is
+not identity asserted by this process. Never transfer a
 model or harness token into this process. The client stores an authorization ID
 and protected local signing key; temporary OAuth tokens are discarded.
 

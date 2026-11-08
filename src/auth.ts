@@ -70,8 +70,8 @@ export class AuthService {
       options.machineKeys ?? new OsMachineKeyProvider(this.store.root);
   }
 
-  async login(email?: string, signal?: AbortSignal): Promise<SafeUser> {
-    const boundEmail = email === undefined ? undefined : parseLoginEmail(email);
+  async login(email: string, signal?: AbortSignal): Promise<SafeUser> {
+    const boundEmail = parseLoginEmail(email);
     const machineKey = await this.machineKeys.create();
     const pending = await this.startDevice(boundEmail, machineKey, signal);
     this.output.loginBrowser(pending.verification_uri_complete);
@@ -147,7 +147,7 @@ export class AuthService {
   }
 
   private async startDevice(
-    email: string | undefined,
+    email: string,
     machineKey: MachineKeyReference,
     signal?: AbortSignal,
   ): Promise<DeviceAuthorization> {
@@ -157,7 +157,7 @@ export class AuthService {
       scope: "basic",
       machine_jwk: JSON.stringify(machineKey.public_jwk),
     });
-    if (email) form.set("email", email);
+    form.set("email", email);
     const response = await requestJson(
       this.fetcher,
       OAUTH_DEVICE_AUTHORIZATION_URL,
@@ -275,7 +275,7 @@ export class AuthService {
     if (response.status === 401) {
       throw new TeamClawsError(
         "invalid_authentication",
-        "The TeamClaws CLI authorization is inactive. Run `teamclaws login` to authorize this computer again.",
+        "The TeamClaws CLI authorization is inactive. Run `teamclaws login <email>` to authorize this computer again.",
         {
           exitCode: 3,
         },
@@ -427,7 +427,7 @@ function oauthError(status: number, body: unknown): TeamClawsError {
   }
   const message =
     error === "invalid_grant"
-      ? "The TeamClaws login is no longer valid. Run `teamclaws login` to authenticate."
+      ? "The TeamClaws login is no longer valid. Run `teamclaws login <email>` to authenticate."
       : "TeamClaws rejected the login request.";
   return new TeamClawsError(code, message, {
     retryable: status >= 500,
