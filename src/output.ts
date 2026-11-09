@@ -171,6 +171,18 @@ export class Output {
           `${index + 1}. ${server.alias} — ${server.server_id} — ${server.workspace_url} — ${server.pairing_ready ? "ready to pair" : "not ready to pair"}\n`,
         );
         if (server.description) this.stdout.write(`   ${server.description}\n`);
+        if (server.resources) {
+          this.stdout.write("   Resources:\n");
+          for (const resource of server.resources) {
+            const permissions = Object.entries(resource.permissions ?? {})
+              .map(([key, value]) => `${key}=${value}`)
+              .join(", ");
+            this.stdout.write(
+              `     ${resource.type}: ${resource.name}${permissions ? ` — permissions: ${permissions}` : ""}${resource.skills.length ? ` — skills: ${resource.skills.join(", ")}` : ""}\n`,
+            );
+          }
+          if (server.resources.length === 0) this.stdout.write("     None\n");
+        }
         if (server.tier_name)
           this.stdout.write(`   Tier: ${server.tier_name}\n`);
         if (server.is_free === true) {

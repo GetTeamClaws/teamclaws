@@ -677,6 +677,54 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
       ...(typeof server.description === "string"
         ? { description: server.description }
         : {}),
+      ...(server.resources !== undefined
+        ? {
+            resources: (() => {
+              if (!Array.isArray(server.resources))
+                throw new TeamClawsError(
+                  "invalid_response",
+                  "TeamClaws returned invalid server resources.",
+                  { exitCode: 9 },
+                );
+              return server.resources.map((resource) => {
+                if (
+                  !isObject(resource) ||
+                  !Array.isArray(resource.skills) ||
+                  (resource.permissions !== undefined &&
+                    !isObject(resource.permissions))
+                )
+                  throw new TeamClawsError(
+                    "invalid_response",
+                    "TeamClaws returned an invalid server resource.",
+                    { exitCode: 9 },
+                  );
+                return {
+                  type: requireString(resource.type, "resource type", 150),
+                  name: requireString(resource.name, "resource name", 512),
+                  ...(resource.permissions !== undefined
+                    ? {
+                        permissions: Object.fromEntries(
+                          Object.entries(resource.permissions).map(
+                            ([key, value]) => [
+                              requireString(key, "resource permission", 150),
+                              requireString(
+                                value,
+                                "resource permission level",
+                                150,
+                              ),
+                            ],
+                          ),
+                        ),
+                      }
+                    : {}),
+                  skills: resource.skills.map((skill) =>
+                    requireString(skill, "resource skill", 150),
+                  ),
+                };
+              });
+            })(),
+          }
+        : {}),
       ...(typeof server.custom_alias === "string"
         ? { custom_alias: server.custom_alias }
         : {}),

@@ -124,12 +124,19 @@ request. Test a required-yield environment separately if automatic wakeup is
 used. Local CLI tests establish process behavior, not automatic loading or
 compliance in every agent environment.
 
-`servers list` requests `GET /api/cli/v1/servers/?include_inventory=1&include_description=1&include_editable_metadata=1&include_subscription=1`. Updated
+`servers list` requests `GET /api/cli/v1/servers/?include_inventory=1&include_description=1&include_editable_metadata=1&include_subscription=1&include_resources=1`. Updated
 brokers return `servers` and `workspace_count`: the count of all non-deleted
 owned and eligible shared workspaces, including those without a hostname yet.
 Individual server entries retain aliases, stable IDs, status and `pairing_ready`.
 When supported, they also include the server description. Older brokers may
 omit descriptions; nonempty descriptions appear under each readable list entry.
+The resources opt-in adds `resources: [{type, name, permissions, skills}]` after the description
+in JSON and readable lists. Resources are passive server context: the CLI displays
+the returned resource names and skill references without fetching resource content,
+running skills, or changing permissions. Optional `permissions` maps capability names
+to their returned access levels, including approval requirements; the CLI displays
+these values without interpreting or changing them. An empty array means no listed resources;
+older brokers may omit the field. Other unknown server fields remain ignored.
 The editing opt-in adds `custom_alias` (the owner's saved name, distinct from a
 fallback display name) and `can_edit_metadata`. Older brokers may omit these.
 Older brokers may omit the count; the CLI reports it as null and never infers

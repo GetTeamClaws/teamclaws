@@ -41,6 +41,12 @@ export type ServerSummary = {
   server_id: string;
   alias: string;
   description?: string;
+  resources?: Array<{
+    type: string;
+    name: string;
+    permissions?: Record<string, string>;
+    skills: string[];
+  }>;
   custom_alias?: string;
   can_edit_metadata?: boolean;
   tier_name?: string | null;
