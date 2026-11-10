@@ -208,7 +208,7 @@ npx teamclaws pair status <server-identifier-or-canonical-workspace-address>
 npx teamclaws pair
 npx teamclaws pair <server-identifier-or-canonical-workspace-address> [--no-open]
 npx teamclaws shell <target> --command <text> [--json]
-npx teamclaws users add <target> <email> --role <user|staff|superuser> [--sudo] [--json]
+npx teamclaws users add <target> <email> [--sudo] [--json]
 npx teamclaws chat start <target> --message <text>
 npx teamclaws chat send <target> --session-id <uuid> --message <text>
 npx teamclaws chat watch <target> --session-id <uuid> --request-id <uuid>
@@ -253,9 +253,11 @@ monitoring without creating another turn.
 
 ## Add a workspace user directly
 
-`teamclaws users add <target> <email> --role user --json` sends a direct request
-using the saved paired machine credential and its bound authorization. The role
-is required; supported roles are `user`, `staff`, and `superuser`. The server
+`teamclaws users add <target> <email> --json` sends a direct request
+using the saved paired machine credential and its bound authorization.
+CLI additions always request workspace Superuser access. Role selection is
+intentionally unavailable for now because CLI additions are admin-only.
+Sudo remains a separate opt-in. The server
 verifies current owner authority and the shared six-calendar-month machine
 authorization deadline. Initial CLI login and pairing remain the normal setup.
 
@@ -271,11 +273,10 @@ The owner can include `--sudo` when inviting a `superuser` to grant full sudo
 access after acceptance:
 
 ```text
-teamclaws users add <target> <email> --role superuser --sudo
+teamclaws users add <target> <email> --sudo
 ```
 
-Omitting `--sudo` requests no sudo grant. The flag is rejected for `user` and
-`staff` roles. Sudo follows the existing access-group membership. The CLI
+Omitting `--sudo` requests no sudo grant. Sudo follows the existing access-group membership. The CLI
 requires the workspace to acknowledge the saved sudo selection before reporting
 a new sudo invitation as successful. Existing members and pending invitations
 remain unchanged even when the flag is supplied.
