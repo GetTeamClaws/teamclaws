@@ -10,6 +10,7 @@ import type {
   PairingTarget,
   UsersAddResult,
   UsersListResult,
+  UsersRemoveResult,
 } from "./types.js";
 import { isObject } from "./validation.js";
 
@@ -267,5 +268,98 @@ export async function runUsersAdd(
     ...(typeof body.sudo_enabled === "boolean"
       ? { sudo_enabled: body.sudo_enabled }
       : {}),
+  };
+}
+
+export async function runUsersRemove(
+  store: CredentialStore,
+  fetcher: FetchLike,
+  target: PairingTarget,
+  email: string,
+  authorization: TargetAuthorization,
+  signal?: AbortSignal,
+): Promise<UsersRemoveResult> {
+  const credential = await store.findWorkspace(target);
+  if (!credential)
+    throw new TeamClawsError(
+      "re_pair_required",
+      "No saved pairing was found for this workspace. Pair it first.",
+      { exitCode: 3 },
+    );
+  const messages: Record<string, string> = {
+    ...failureMessages,
+    owner_required: "Only the current machine owner can remove users.",
+    forbidden: "The paired identity is not authorized to remove users.",
+    mfa_required:
+      "The owner must meet the existing MFA policy before removing users.",
+    target_proof_expired: "The request proof expired before user removal.",
+    owner_removal_forbidden: "The machine owner cannot be removed.",
+    member_not_removable: "The access-group owner cannot be removed.",
+    membership_not_found:
+      "No matching membership or pending invitation was found.",
+    access_group_missing:
+      "This machine has no access group to remove users from.",
+    invalid_request: "The workspace rejected the remove-user request.",
+    outcome_unverified:
+      "The removal outcome could not be verified. Check user and invitation status before retrying.",
+  };
+  let response: JsonResponse;
+  try {
+    response = await requestTargetJson(
+      fetcher,
+      authorization,
+      `${credential.origin}/teamclaws-admin/api/device-users/v1/remove/`,
+      credential,
+      { method: "POST", body: { email }, ...(signal ? { signal } : {}) },
+    );
+  } catch (error) {
+    if (
+      error instanceof TeamClawsError &&
+      ["network_error", "network_timeout"].includes(error.code)
+    )
+      throw new TeamClawsError(
+        "outcome_unverified",
+        messages.outcome_unverified!,
+      );
+    throw error;
+  }
+  const body = response.body;
+  if (response.status !== 200 || (isObject(body) && body.ok === false)) {
+    const rawCode = isObject(body)
+      ? (body.code ?? (isObject(body.error) ? body.error.code : body.error))
+      : undefined;
+    const code =
+      typeof rawCode === "string" && Object.hasOwn(messages, rawCode)
+        ? rawCode
+        : [404, 405].includes(response.status)
+          ? "users_remove_unavailable"
+          : "outcome_unverified";
+    throw new TeamClawsError(
+      code,
+      messages[code] ?? "Direct user removal is unavailable on this workspace.",
+      {
+        exitCode: response.status === 401 ? 3 : response.status === 429 ? 5 : 1,
+      },
+    );
+  }
+  if (
+    !isObject(body) ||
+    body.ok !== true ||
+    body.action !== "remove" ||
+    body.scope !== "access_group" ||
+    body.email !== email ||
+    !["removed", "revoked"].includes(String(body.code))
+  )
+    throw new TeamClawsError(
+      "invalid_response",
+      "The workspace returned an invalid remove-user result. Check user and invitation status before retrying.",
+      { exitCode: 9 },
+    );
+  return {
+    ok: true,
+    code: body.code as UsersRemoveResult["code"],
+    action: "remove",
+    scope: "access_group",
+    email,
   };
 }

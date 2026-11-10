@@ -209,6 +209,7 @@ npx teamclaws pair
 npx teamclaws pair <server-identifier-or-canonical-workspace-address> [--no-open]
 npx teamclaws shell <target> --command <text> [--json]
 npx teamclaws users add <target> <email> [--sudo] [--json]
+npx teamclaws users remove <target> <email> [--json]
 npx teamclaws chat start <target> --message <text>
 npx teamclaws chat send <target> --session-id <uuid> --message <text>
 npx teamclaws chat watch <target> --session-id <uuid> --request-id <uuid>
@@ -280,6 +281,20 @@ Omitting `--sudo` requests no sudo grant. Sudo follows the existing access-group
 requires the workspace to acknowledge the saved sudo selection before reporting
 a new sudo invitation as successful. Existing members and pending invitations
 remain unchanged even when the flag is supplied.
+
+### Remove a workspace user
+
+```text
+teamclaws users remove <target> <email> --json
+```
+
+Only the current machine owner can remove a member or revoke a pending
+invitation. This removes access across all machines sharing the access group;
+it does not delete the person's TeamClaws account. Machine and access-group
+owners cannot be removed. No matching member or invitation returns an error.
+The command uses the saved paired authorization without opening a browser or
+starting a shell or chat. If the outcome is uncertain, inspect user and
+invitation status before retrying; removal does not blindly retry.
 
 ### Inspect users and invitation status
 

@@ -31,6 +31,14 @@ export type UsersAddResult = {
   sudo_enabled?: boolean;
 };
 
+export type UsersRemoveResult = {
+  ok: true;
+  code: "removed" | "revoked";
+  action: "remove";
+  scope: "access_group";
+  email: string;
+};
+
 export type SafeUser = {
   id: string;
   display_name: string;

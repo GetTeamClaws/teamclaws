@@ -13,6 +13,7 @@ import type {
   ServerSummary,
   WorkspaceCredential,
   UsersAddResult,
+  UsersRemoveResult,
   UsersListResult,
 } from "./types.js";
 
@@ -600,6 +601,20 @@ export class Output {
       };
       this.stdout.write(`${messages[result.code]}\n`);
     }
+  }
+
+  usersRemoveResult(result: UsersRemoveResult): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "users_remove_result",
+      ...result,
+    });
+    if (!this.json)
+      this.stdout.write(
+        result.code === "removed"
+          ? "User removed from the workspace access group.\n"
+          : "Pending invitation revoked.\n",
+      );
   }
 
   usersListResult(result: UsersListResult): void {
