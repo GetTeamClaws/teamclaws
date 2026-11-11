@@ -7,6 +7,10 @@ import type {
   ChatHistoryMessage,
   CapabilityInventory,
   ExternalChatHandoff,
+  GitAssignmentList,
+  GitAssignmentResult,
+  GitPermissionMap,
+  GitRepositoryList,
   PairingStatus,
   SafeUser,
   ServerMetadata,
@@ -570,6 +574,58 @@ export class Output {
     if (!this.json) this.stderr.write(`Error: ${detail}\n`);
   }
 
+  gitRepositories(result: GitRepositoryList): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "git_repositories",
+      ...result,
+    });
+    if (this.json) return;
+    if (!result.repositories.length) {
+      this.stdout.write(
+        `You don't have any repositories connected. Go to ${result.connect_url} to add them.\n`,
+      );
+      return;
+    }
+    for (const repo of result.repositories)
+      this.stdout.write(`${repo.repository_id}  ${repo.full_name}\n`);
+    this.stdout.write(
+      `Missing a repository? Go to ${result.connect_url} to add or enable it.\n`,
+    );
+  }
+
+  gitAssignments(result: GitAssignmentList): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "git_assignments",
+      ...result,
+    });
+    if (this.json) return;
+    if (!result.repositories.length)
+      this.stdout.write(`No repositories assigned to ${result.server_id}.\n`);
+    for (const repo of result.repositories)
+      this.stdout.write(
+        `${repo.repository_id}  ${repo.full_name}  ${gitPermissionsText(repo.permissions)}\n`,
+      );
+  }
+
+  gitAssignmentResult(result: GitAssignmentResult): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "git_assignment_result",
+      ...result,
+    });
+    if (this.json) return;
+    const messages = {
+      permissions_set: `Set permissions on ${result.server_id}: ${gitPermissionsText(result.permissions)}`,
+      removed: `Removed access from ${result.server_id}.`,
+      already_unassigned: `Already unassigned from ${result.server_id}.`,
+    };
+    this.stdout.write(
+      `${result.full_name} (${result.repository_id}): ${messages[result.code]}\n`,
+    );
+  }
+
   error(error: TeamClawsError): void {
     const event: Record<string, unknown> = {
       schema_version: OUTPUT_SCHEMA_VERSION,
@@ -582,8 +638,15 @@ export class Output {
     if (error.retryAfterSeconds !== undefined) {
       event.retry_after_seconds = error.retryAfterSeconds;
     }
+    if (error.connectUrl !== undefined) event.connect_url = error.connectUrl;
     if (this.json) this.stdout.write(`${JSON.stringify(event)}\n`);
-    else this.stderr.write(`Error: ${error.message}\n`);
+    else {
+      this.stderr.write(`Error: ${error.message}\n`);
+      if (error.connectUrl !== undefined)
+        this.stderr.write(
+          `Go to ${error.connectUrl} to add or enable the repository.\n`,
+        );
+    }
   }
 
   usersAddResult(result: UsersAddResult): void {
@@ -654,4 +717,8 @@ export class Output {
       ...facts,
     });
   }
+}
+
+function gitPermissionsText(permissions: GitPermissionMap): string {
+  return `issues=${permissions.issues} contents=${permissions.contents} pull-requests=${permissions.pull_requests} workflows=${permissions.workflows}`;
 }

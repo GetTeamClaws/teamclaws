@@ -17,6 +17,8 @@ import { runShell, shellFetch } from "./shell.js";
 import { CredentialStore } from "./storage.js";
 import { TargetAuthorization } from "./target-authorization.js";
 import type {
+  GitAccessLevel,
+  GitPermissionMap,
   PairingTarget,
   MachineUserRole,
   ServerMetadataUpdate,
@@ -251,6 +253,33 @@ export async function run(
         output.serverMetadataUpdated(server);
         return 0;
       }
+      case "git_repos":
+        output.gitRepositories(await broker.gitRepositories(signal));
+        return 0;
+      case "git_list":
+        output.gitAssignments(
+          await broker.gitAssignments(parsed.serverId, signal),
+        );
+        return 0;
+      case "git_set":
+        output.gitAssignmentResult(
+          await broker.setGitAssignment(
+            parsed.serverId,
+            parsed.repositoryId,
+            parsed.permissions,
+            signal,
+          ),
+        );
+        return 0;
+      case "git_remove":
+        output.gitAssignmentResult(
+          await broker.removeGitAssignment(
+            parsed.serverId,
+            parsed.repositoryId,
+            signal,
+          ),
+        );
+        return 0;
       case "pair": {
         const target = parsed.target
           ? parsePairingTarget(parsed.target)
@@ -314,6 +343,21 @@ export async function run(
 }
 
 type ParsedArguments =
+  | { action: "git_repos"; json: boolean }
+  | { action: "git_list"; json: boolean; serverId: string }
+  | {
+      action: "git_remove";
+      json: boolean;
+      serverId: string;
+      repositoryId: number;
+    }
+  | {
+      action: "git_set";
+      json: boolean;
+      serverId: string;
+      repositoryId: number;
+      permissions: GitPermissionMap;
+    }
   | { action: "users_list"; json: boolean; target: PairingTarget }
   | {
       action: "users_remove";
@@ -368,6 +412,57 @@ type ParsedArguments =
   | { action: "chat_watch"; json: boolean; options: ChatWatchOptions };
 
 export function parseArguments(arguments_: string[]): ParsedArguments {
+  if (arguments_[0] === "git") {
+    const operation = arguments_[1];
+    if (operation === "repos") {
+      const { flags } = parseNamedOptions(arguments_.slice(2), {
+        values: [],
+        booleans: ["--json"],
+      });
+      return { action: "git_repos", json: flags.has("--json") };
+    }
+    if (operation !== "list" && operation !== "set" && operation !== "remove")
+      throw usageError();
+    const serverId = normalizeUuid(requiredPositional(arguments_, 2));
+    if (operation === "list") {
+      const { flags } = parseNamedOptions(arguments_.slice(3), {
+        values: [],
+        booleans: ["--json"],
+      });
+      return { action: "git_list", serverId, json: flags.has("--json") };
+    }
+    const rawRepositoryId = requiredPositional(arguments_, 3);
+    const repositoryId = Number(rawRepositoryId);
+    if (
+      !/^[1-9][0-9]*$/.test(rawRepositoryId) ||
+      !Number.isSafeInteger(repositoryId)
+    )
+      throw usageError();
+    const { values, flags } = parseNamedOptions(arguments_.slice(4), {
+      values:
+        operation === "set"
+          ? ["--issues", "--contents", "--pull-requests", "--workflows"]
+          : [],
+      booleans: ["--json"],
+    });
+    const json = flags.has("--json");
+    if (operation === "remove")
+      return { action: "git_remove", serverId, repositoryId, json };
+    const workflows = values["--workflows"];
+    if (workflows !== "none" && workflows !== "write") throw usageError();
+    return {
+      action: "git_set",
+      serverId,
+      repositoryId,
+      json,
+      permissions: {
+        issues: gitAccessLevel(values["--issues"]),
+        contents: gitAccessLevel(values["--contents"]),
+        pull_requests: gitAccessLevel(values["--pull-requests"]),
+        workflows,
+      },
+    };
+  }
   if (arguments_[0] === "servers" && arguments_[1] === "update") {
     const serverId = normalizeUuid(requiredPositional(arguments_, 2));
     const updates: ServerMetadataUpdate = {};
@@ -641,6 +736,11 @@ function parseNamedOptions(
   return { values, flags };
 }
 
+function gitAccessLevel(value: string | undefined): GitAccessLevel {
+  if (value === "none" || value === "read" || value === "write") return value;
+  throw usageError();
+}
+
 function nonNegativeInteger(value?: string): number {
   if (value === undefined) return 0;
   const parsed = Number(value);
@@ -789,5 +889,5 @@ function usageError(): TeamClawsError {
 }
 
 export function helpText(): string {
-  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws users add <target> <email> [--sudo] [--json]\n  teamclaws users remove <target> <email> [--json]\n  teamclaws users list <target> [--json]\n  teamclaws login <email> [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
+  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws users add <target> <email> [--sudo] [--json]\n  teamclaws users remove <target> <email> [--json]\n  teamclaws users list <target> [--json]\n  teamclaws login <email> [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws git repos [--json]\n  teamclaws git list <server-id> [--json]\n  teamclaws git set <server-id> <repository-id> --issues <none|read|write> --contents <none|read|write> --pull-requests <none|read|write> --workflows <none|write> [--json]\n  teamclaws git remove <server-id> <repository-id> [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
 }

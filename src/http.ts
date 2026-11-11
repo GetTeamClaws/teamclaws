@@ -9,7 +9,7 @@ import { isObject } from "./validation.js";
 export type FetchLike = typeof fetch;
 
 export type JsonRequestOptions = {
-  method?: "GET" | "POST";
+  method?: "GET" | "POST" | "DELETE";
   headers?: Record<string, string>;
   body?: unknown;
   textBody?: string;

@@ -67,6 +67,32 @@ export type ServerSummary = {
 
 export type ServerMetadataUpdate = { alias?: string; description?: string };
 
+export type GitAccessLevel = "none" | "read" | "write";
+
+export type GitPermissionMap = {
+  issues: GitAccessLevel;
+  contents: GitAccessLevel;
+  pull_requests: GitAccessLevel;
+  workflows: Exclude<GitAccessLevel, "read">;
+};
+
+export type GitRepository = { repository_id: number; full_name: string };
+export type GitRepositoryList = {
+  repositories: GitRepository[];
+  connect_url: string;
+};
+export type GitRepositoryAssignment = GitRepository & {
+  permissions: GitPermissionMap;
+};
+export type GitAssignmentList = {
+  server_id: string;
+  repositories: GitRepositoryAssignment[];
+};
+export type GitAssignmentResult = GitRepositoryAssignment & {
+  server_id: string;
+  code: "permissions_set" | "removed" | "already_unassigned";
+};
+
 export type ServerMetadata = {
   server_id: string;
   alias: string;

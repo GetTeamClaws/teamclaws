@@ -1,4 +1,5 @@
 export type ErrorDetails = {
+  connectUrl?: string;
   retryable?: boolean;
   retryAfterSeconds?: number;
   exitCode?: number;
@@ -9,6 +10,7 @@ export class TeamClawsError extends Error {
   readonly retryable: boolean;
   readonly retryAfterSeconds: number | undefined;
   readonly exitCode: number;
+  readonly connectUrl: string | undefined;
 
   constructor(code: string, message: string, details: ErrorDetails = {}) {
     super(message);
@@ -17,6 +19,7 @@ export class TeamClawsError extends Error {
     this.retryable = details.retryable ?? false;
     this.retryAfterSeconds = details.retryAfterSeconds;
     this.exitCode = details.exitCode ?? 1;
+    this.connectUrl = details.connectUrl;
   }
 }
 

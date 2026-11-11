@@ -312,6 +312,23 @@ When supplied by the workspace, each entry includes its saved `sudo_enabled`
 status. An accepted invitation's selection is historical; the current member's
 status determines their current access.
 
+## Manage GitHub repository permissions for a server
+
+These commands manage server access to repositories you have already connected to TeamClaws.
+
+```sh
+teamclaws git repos
+teamclaws git list <server-id>
+teamclaws git set <server-id> <repository-id> --issues read --contents write --pull-requests read --workflows none
+teamclaws git remove <server-id> <repository-id>
+```
+
+Use `teamclaws servers list` to find the server ID and `teamclaws git repos` to find the repository ID. If you have no connected repositories or cannot find the repository you need, add it at [Connected GitHub](https://www.teamclaws.com/app/connected-github/).
+
+Server owners can list, set, and remove permissions for their servers. `git set` requires all four flags. Issues, contents, and pull requests accept `none`, `read`, or `write`. Workflows accepts `none` or `write`. Setting all four to `none` removes the assignment. `git remove` also succeeds when the repository is already unassigned.
+
+Each command supports `--json`. If a mutation returns an uncertain result, run `git list` to check the saved permissions before retrying.
+
 ## Read chat history without a browser
 
 ```text

@@ -16,6 +16,12 @@ import {
 import { TeamClawsError } from "./errors.js";
 import { errorFromResponse, requestJson, type FetchLike } from "./http.js";
 import type {
+  GitAccessLevel,
+  GitAssignmentList,
+  GitAssignmentResult,
+  GitPermissionMap,
+  GitRepository,
+  GitRepositoryList,
   PairingTarget,
   PendingPairing,
   ServerMetadata,
@@ -28,6 +34,7 @@ import {
   normalizeUuid,
   parsePendingPairing,
   parseWorkspaceInventory,
+  requireInteger,
   requireString,
 } from "./validation.js";
 
@@ -36,6 +43,14 @@ export type BrokerOptions = {
   deviceName?: () => string;
   authorization?: TargetAuthorization;
 };
+
+const CONNECTED_GITHUB_URL = "https://www.teamclaws.com/app/connected-github/";
+const GIT_PERMISSION_KEYS = [
+  "issues",
+  "contents",
+  "pull_requests",
+  "workflows",
+] as const;
 
 export class BrokerClient {
   private readonly fetcher: FetchLike;
@@ -103,6 +118,169 @@ export class BrokerClient {
     if (!isObject(response.body)) throw invalidMetadataResponse();
     assertExactKeys(response.body, ["server"], [], "server metadata response");
     return editableServer(response.body.server, id);
+  }
+
+  async gitRepositories(signal?: AbortSignal): Promise<GitRepositoryList> {
+    const body = await this.gitRequest(
+      "GET",
+      `${API_BASE}github-repositories/`,
+      signal,
+    );
+    assertExactKeys(
+      body,
+      ["repositories", "connect_url"],
+      [],
+      "repository list",
+    );
+    if (
+      !Array.isArray(body.repositories) ||
+      body.connect_url !== CONNECTED_GITHUB_URL
+    )
+      throw invalidGitResponse();
+    return {
+      repositories: body.repositories.map((row: unknown) => {
+        if (!isObject(row)) throw invalidGitResponse();
+        assertExactKeys(row, ["repository_id", "full_name"], [], "repository");
+        return gitRepository(row);
+      }),
+      connect_url: body.connect_url,
+    };
+  }
+
+  async gitAssignments(
+    serverId: string,
+    signal?: AbortSignal,
+  ): Promise<GitAssignmentList> {
+    const id = normalizeUuid(serverId);
+    const body = await this.gitRequest(
+      "GET",
+      `${API_BASE}servers/${id}/github-repositories/`,
+      signal,
+    );
+    assertExactKeys(
+      body,
+      ["server_id", "repositories"],
+      [],
+      "repository assignment list",
+    );
+    if (body.server_id !== id || !Array.isArray(body.repositories))
+      throw invalidGitResponse();
+    return {
+      server_id: id,
+      repositories: body.repositories.map((row: unknown) => {
+        if (!isObject(row)) throw invalidGitResponse();
+        assertExactKeys(
+          row,
+          ["repository_id", "full_name", "permissions"],
+          [],
+          "repository assignment",
+        );
+        return {
+          ...gitRepository(row),
+          permissions: gitPermissions(row.permissions),
+        };
+      }),
+    };
+  }
+
+  setGitAssignment(
+    serverId: string,
+    repositoryId: number,
+    permissions: GitPermissionMap,
+    signal?: AbortSignal,
+  ): Promise<GitAssignmentResult> {
+    return this.changeGitAssignment(
+      serverId,
+      repositoryId,
+      signal,
+      permissions,
+    );
+  }
+
+  removeGitAssignment(
+    serverId: string,
+    repositoryId: number,
+    signal?: AbortSignal,
+  ): Promise<GitAssignmentResult> {
+    return this.changeGitAssignment(serverId, repositoryId, signal);
+  }
+
+  private async changeGitAssignment(
+    serverId: string,
+    repositoryId: number,
+    signal?: AbortSignal,
+    permissions?: GitPermissionMap,
+  ): Promise<GitAssignmentResult> {
+    const id = normalizeUuid(serverId);
+    const url = `${API_BASE}servers/${id}/github-repositories/${repositoryId}/`;
+    const body = await this.gitRequest(
+      permissions ? "POST" : "DELETE",
+      url,
+      signal,
+      permissions ? { permissions } : undefined,
+    );
+    assertExactKeys(
+      body,
+      ["server_id", "repository_id", "full_name", "permissions", "code"],
+      [],
+      "repository assignment result",
+    );
+    if (body.server_id !== id || body.repository_id !== repositoryId)
+      throw invalidGitResponse();
+    const effective = gitPermissions(body.permissions);
+    if (
+      !GIT_PERMISSION_KEYS.every(
+        (key) => effective[key] === (permissions?.[key] ?? "none"),
+      )
+    )
+      throw invalidGitResponse();
+    const assigned = GIT_PERMISSION_KEYS.some(
+      (key) => effective[key] !== "none",
+    );
+    const code = body.code;
+    if (
+      assigned
+        ? code !== "permissions_set"
+        : code !== "removed" && code !== "already_unassigned"
+    )
+      throw invalidGitResponse();
+    return {
+      ...gitRepository(body),
+      server_id: id,
+      permissions: effective,
+      code: code as GitAssignmentResult["code"],
+    };
+  }
+
+  private async gitRequest(
+    method: "GET" | "POST" | "DELETE",
+    url: string,
+    signal?: AbortSignal,
+    body?: { permissions: GitPermissionMap },
+  ): Promise<Record<string, unknown>> {
+    const response = await requestJson(this.fetcher, url, {
+      method,
+      headers: await this.issuerHeaders(method, url),
+      ...(body === undefined ? {} : { body }),
+      ...(signal ? { signal } : {}),
+    });
+    if (response.status !== 200) {
+      const error = errorFromResponse(response, "git_permissions_failed");
+      if (
+        error.code === "repository_unavailable" &&
+        isObject(response.body) &&
+        isObject(response.body.error) &&
+        response.body.error.connect_url === CONNECTED_GITHUB_URL
+      ) {
+        throw new TeamClawsError(error.code, error.message, {
+          exitCode: error.exitCode,
+          connectUrl: CONNECTED_GITHUB_URL,
+        });
+      }
+      throw error;
+    }
+    if (!isObject(response.body)) throw invalidGitResponse();
+    return response.body;
   }
 
   async claimMetadataPrompt(
@@ -192,6 +370,49 @@ export class BrokerClient {
       ...(await this.authorization.accountHeadersFor(method, url)),
     };
   }
+}
+
+function invalidGitResponse(): TeamClawsError {
+  return new TeamClawsError(
+    "invalid_response",
+    "TeamClaws returned an invalid Git permissions response.",
+    { exitCode: 9 },
+  );
+}
+
+function gitRepository(value: Record<string, unknown>): GitRepository {
+  const fullName = requireString(value.full_name, "repository name");
+  if (!/^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i.test(fullName))
+    throw invalidGitResponse();
+  return {
+    repository_id: requireInteger(
+      value.repository_id,
+      "repository ID",
+      1,
+      Number.MAX_SAFE_INTEGER,
+    ),
+    full_name: fullName,
+  };
+}
+
+function gitPermissions(value: unknown): GitPermissionMap {
+  if (!isObject(value)) throw invalidGitResponse();
+  assertExactKeys(value, GIT_PERMISSION_KEYS, [], "Git permission map");
+  const access = (
+    key: "issues" | "contents" | "pull_requests",
+  ): GitAccessLevel => {
+    const level = value[key];
+    if (level === "none" || level === "read" || level === "write") return level;
+    throw invalidGitResponse();
+  };
+  const workflows = value.workflows;
+  if (workflows !== "none" && workflows !== "write") throw invalidGitResponse();
+  return {
+    issues: access("issues"),
+    contents: access("contents"),
+    pull_requests: access("pull_requests"),
+    workflows,
+  };
 }
 
 function invalidMetadataResponse(): TeamClawsError {
