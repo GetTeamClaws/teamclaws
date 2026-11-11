@@ -66,14 +66,45 @@ for the operation performed; do not treat every nonzero status as a stop conditi
 Verify file transfers against the destination bytes. There is no dedicated CLI file-transfer command and no
 implicit SSH connection. Do not invent one or handle the saved credential yourself.
 
+### Default destination for shared documents
+
+Default shared documents, reports, findings, and transfers to the provisioned
+`handoffs` directory unless the user names another destination. Keep projects in
+their selected directories; do not change the general working directory or move them.
+
+Discover the exact shared path through the existing paired shell:
+
+```text
+teamclaws shell <server-id> --command 'printf "%s\n" "$TEAMCLAWS_HANDOFFS_DIR"' --json
+```
+
+Use the returned absolute path, not `$HOME`, the starting directory, or a guessed
+temporary location. If the advertised path is absent or unavailable on an older
+workspace, report that it needs the sharing update. Do not create an unshared
+fallback or claim shared delivery; continue authorized reads and other searches.
+
+Keep secrets, credentials, browser profiles, and unrelated private files out.
+Create fresh destination bytes using the directory's provisioned group/default
+ACLs; do not move private files in or preserve their `0600` mode. Default ACLs
+handle a restrictive umask, but explicit private modes can still deny collaborators.
+For a shared document you own, retain the inherited group and enable group
+read/write on that file. Do not change other identities' or parent permissions.
+
+Record the exact path, matching source/destination SHA-256 hashes, and whether
+the intended recipient can read the actual file through normal authorized access.
+The writer's own read does not establish recipient access. If recipient access is
+unverified, report that accurately and continue other authorized work.
+
 ### Find a file the user left on the server
 
 When the user names a file without a path, explain where they probably put it
 when working through the CLI, then inspect those locations before asking them
 for a full path:
 
+- The advertised `TEAMCLAWS_HANDOFFS_DIR` and its children first for shared
+  documents and handoffs. Discover it using the command above.
 - The directory reported by `pwd`, and the project's directory if known.
-- `/tmp/`, especially an existing `/tmp/teamclaws-shared/` handoff directory,
+- `/tmp/`, especially an existing `/tmp/handoffs/` handoff directory,
   and `/var/tmp/`. These are temporary locations, not durable storage.
 - The shared workspace, commonly `/home/teamclaws_user/`, including documented
   project, artifact, or handoff directories in `LOCAL_AGENT.md` or project instructions.
@@ -102,29 +133,35 @@ a found non-secret file, return its bytes through the paired shell (base64 is
 suitable), save them locally, and compare the remote and saved SHA-256 hashes.
 Preserve the remote original and do not print encoded file contents unnecessarily.
 
-For ordinary files, use the shell to create a new staging directory, decode
-base64-encoded file bytes there, and compare SHA-256 hashes against the local
-files. Construct the argument with a subprocess argument list (no local shell
-interpolation). A remote Python example for a single **non-secret** file is:
+For shared documents, write into the advertised handoffs directory. For a project,
+use its selected destination. Decode base64-encoded bytes there and compare SHA-256
+hashes against the local files. Construct the argument with a subprocess argument
+list (no local shell interpolation). A remote Python example for a single shared
+**non-secret** document is:
 
 ```text
 python3 - <<'TEAMCLAWS_FILE'
-import base64, hashlib, pathlib
-p = pathlib.Path.home() / 'apps' / 'example-staging' / 'README.md'
-p.parent.mkdir(parents=True, exist_ok=True)
+import base64, hashlib, os, pathlib
+handoffs = pathlib.Path(os.environ['TEAMCLAWS_HANDOFFS_DIR'])
+p = handoffs / 'README.md'
 with p.open('xb') as output:
     output.write(base64.b64decode('SGVsbG8K', validate=True))
+p.chmod(0o660)
 print(hashlib.sha256(p.read_bytes()).hexdigest())
 TEAMCLAWS_FILE
 ```
 
 Replace the path and encoded content from the selected project; the example
 writes the bytes `Hello\n`. Exclusive creation prevents overwriting existing
-files. Check remote Python availability before using this example. Transfer
+files. The directory must already be provisioned; the example does not create it.
+The file inherits its collaboration group and ACLs, and `0660` keeps group
+read/write without granting other users access. Check remote Python availability
+before using this example, then verify the intended recipient's read access. Transfer
 larger files in bounded chunks to a new staging file, checking the final hash.
 Use project-appropriate consistent exports for databases and persistent data;
-copying an active database file is not a verified backup. Preserve file modes
-where needed; inspect symlinks and never follow them outside the selected source.
+copying an active database file is not a verified backup. Preserve project file
+modes where needed; use the handoff sharing permissions for shared documents.
+Inspect symlinks and never follow them outside the selected source.
 If an archive is used, reject absolute paths, parent traversal and escaping links
 before extraction. Verify the destination file inventory and hashes, then place
 it at the agreed destination without overwriting unrelated data.
