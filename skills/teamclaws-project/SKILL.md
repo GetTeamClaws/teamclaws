@@ -1,6 +1,6 @@
 ---
 name: teamclaws-project
-description: Put authorized files, jobs, agents, or projects on a paired TeamClaws server and run them, including services with the user's public or private access choice.
+description: Find and retrieve authorized files from a paired TeamClaws workspace, or put files, jobs, agents, and projects there and run them.
 ---
 
 # Put work on a TeamClaws server
@@ -59,10 +59,43 @@ teamclaws shell <server-id> --command <one-quoted-command-argument> --json
 ```
 
 This sends the exact command over the authenticated workspace HTTPS shell API.
-Each command starts in the remote account's home; use explicit working directories.
+Check `pwd`, `printf '%s\n' "$HOME"`, and `id` rather than assuming the starting
+directory is the user's home. Use explicit working directories in commands.
 The result has `stdout`, `stderr`, and `exit_code`. Require exit 0 and independent
 destination verification. There is no dedicated CLI file-transfer command and no
 implicit SSH connection. Do not invent one or handle the saved credential yourself.
+
+### Find a file the user left on the server
+
+When the user names a file without a path, explain where they probably put it
+when working through the CLI, then inspect those locations before asking them
+for a full path:
+
+- The directory reported by `pwd`, and the project's directory if known.
+- `/tmp/`, especially an existing `/tmp/teamclaws-shared/` handoff directory,
+  and `/var/tmp/`. These are temporary locations, not durable storage.
+- The shared workspace, commonly `/home/teamclaws_user/`, including documented
+  project, artifact, or handoff directories in `LOCAL_AGENT.md` or project instructions.
+- The paired user's `$HOME` and its `workspace/` directory. This private home
+  can differ from the shared workspace and from another agent's home.
+
+These are likely locations, not a guarantee that every directory exists or is
+shared with every identity. Inspect the actual paths and permissions. A
+provider's private temporary namespace may differ from the paired shell's `/tmp`.
+Do not change permissions or switch identities to search inaccessible locations.
+
+Search the named directory and its children for the exact filename first;
+use a case-insensitive or partial-name search if needed. Prefer `rg --files
+--hidden --no-ignore -g '<filename>' <directory>` when available; otherwise use
+`find <directory> -iname '<filename>' -print`. Do not suppress permission errors
+or turn an incomplete search into a claim that the file does not exist. Check
+directory symlinks explicitly without following them outside the authorized scope.
+
+If the file is still unfound, report the actual searched locations and access
+failures before asking for its full path or originating chat/project. To retrieve
+a found non-secret file, return its bytes through the paired shell (base64 is
+suitable), save them locally, and compare the remote and saved SHA-256 hashes.
+Preserve the remote original and do not print encoded file contents unnecessarily.
 
 For ordinary files, use the shell to create a new staging directory, decode
 base64-encoded file bytes there, and compare SHA-256 hashes against the local
