@@ -61,8 +61,9 @@ teamclaws shell <server-id> --command <one-quoted-command-argument> --json
 This sends the exact command over the authenticated workspace HTTPS shell API.
 Check `pwd`, `printf '%s\n' "$HOME"`, and `id` rather than assuming the starting
 directory is the user's home. Use explicit working directories in commands.
-The result has `stdout`, `stderr`, and `exit_code`. Require exit 0 and independent
-destination verification. There is no dedicated CLI file-transfer command and no
+The result has `stdout`, `stderr`, and `exit_code`. Inspect the output and status
+for the operation performed; do not treat every nonzero status as a stop condition.
+Verify file transfers against the destination bytes. There is no dedicated CLI file-transfer command and no
 implicit SSH connection. Do not invent one or handle the saved credential yourself.
 
 ### Find a file the user left on the server
@@ -87,8 +88,12 @@ Do not change permissions or switch identities to search inaccessible locations.
 Search the named directory and its children for the exact filename first;
 use a case-insensitive or partial-name search if needed. Prefer `rg --files
 --hidden --no-ignore -g '<filename>' <directory>` when available; otherwise use
-`find <directory> -iname '<filename>' -print`. Do not suppress permission errors
-or turn an incomplete search into a claim that the file does not exist. Check
+`find <directory> -iname '<filename>' -print`. A search can return matches and a
+nonzero status when one child directory is unreadable. Keep those matches and
+continue searching every other readable directory; report inaccessible branches
+separately. Do not use `set -e` or `&&` to abort independent searches on such errors.
+Do not suppress permission errors or turn an incomplete search into a claim that
+the file does not exist. Check
 directory symlinks explicitly without following them outside the authorized scope.
 
 If the file is still unfound, report the actual searched locations and access
