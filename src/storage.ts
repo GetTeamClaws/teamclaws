@@ -28,6 +28,7 @@ import type {
   WorkspaceCredential,
 } from "./types.js";
 import {
+  canonicalWorkspaceOrigin,
   isObject,
   requireHttpsUrl,
   requireInteger,
@@ -152,7 +153,19 @@ export class CredentialStore {
     const matches: StatusWorkspaceCredential[] = [];
     for (const name of names.sort()) {
       if (!UUID_CREDENTIAL_NAME.test(name)) continue;
-      const credential = await this.readWorkspaceForStatus(name.slice(0, -5));
+      const serverId = name.slice(0, -5);
+      const value = await this.readJsonIfPresent(this.workspacePath(serverId));
+      if (isObject(value) && value.version === 1) {
+        try {
+          if (canonicalWorkspaceOrigin(value.origin) !== origin) continue;
+        } catch {
+          // Preserve the legacy error below when its origin cannot be identified.
+        }
+      }
+      const credential =
+        value === undefined
+          ? undefined
+          : parseStatusWorkspaceCredential(value, serverId);
       if (credential?.origin === origin) matches.push(credential);
     }
     if (matches.length > 1) {

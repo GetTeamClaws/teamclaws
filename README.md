@@ -243,6 +243,9 @@ a short-lived target proof for that bound pairing, performs at most one direct
 workspace verification with a five-second timeout, reports the result, and
 stops. It never starts pairing or loads external-chat resources.
 
+Legacy saved pairings for other workspaces do not require the selected workspace
+to be paired again.
+
 After pairing, `chat start`, `chat send`, and `chat watch` use the protected
 workspace credential directly against that exact workspace. They verify the
 authoritative versioned handoff, resolve the workspace capability catalog, and
