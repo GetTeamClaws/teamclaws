@@ -17,6 +17,9 @@ import { runShell, shellFetch } from "./shell.js";
 import { CredentialStore } from "./storage.js";
 import { TargetAuthorization } from "./target-authorization.js";
 import type {
+  EmailProvider,
+  EmailAssignmentPolicy,
+  FeedbackLabel,
   GitAccessLevel,
   GitPermissionMap,
   PairingTarget,
@@ -256,6 +259,36 @@ export async function run(
       case "git_repos":
         output.gitRepositories(await broker.gitRepositories(signal));
         return 0;
+      case "email_accounts":
+        output.emailAccounts(await broker.emailAccounts(signal));
+        return 0;
+      case "email_list":
+        output.emailAssignments(
+          await broker.emailAssignments(parsed.serverId, signal),
+        );
+        return 0;
+      case "email_set":
+      case "email_remove":
+        output.emailAssignmentResult(
+          await broker.changeEmailAssignment(
+            parsed.serverId,
+            parsed.provider,
+            parsed.accountId,
+            parsed.action === "email_set" ? parsed.policy : undefined,
+            signal,
+          ),
+        );
+        return 0;
+      case "feedback":
+        output.feedbackResult(
+          await broker.submitFeedback(
+            parsed.label,
+            parsed.title,
+            parsed.body,
+            signal,
+          ),
+        );
+        return 0;
       case "git_list":
         output.gitAssignments(
           await broker.gitAssignments(parsed.serverId, signal),
@@ -343,6 +376,30 @@ export async function run(
 }
 
 type ParsedArguments =
+  | { action: "email_accounts"; json: boolean }
+  | { action: "email_list"; json: boolean; serverId: string }
+  | {
+      action: "email_set";
+      json: boolean;
+      serverId: string;
+      provider: EmailProvider;
+      accountId: number;
+      policy: EmailAssignmentPolicy;
+    }
+  | {
+      action: "email_remove";
+      json: boolean;
+      serverId: string;
+      provider: EmailProvider;
+      accountId: number;
+    }
+  | {
+      action: "feedback";
+      json: boolean;
+      label: FeedbackLabel;
+      title: string;
+      body: string;
+    }
   | { action: "git_repos"; json: boolean }
   | { action: "git_list"; json: boolean; serverId: string }
   | {
@@ -412,6 +469,65 @@ type ParsedArguments =
   | { action: "chat_watch"; json: boolean; options: ChatWatchOptions };
 
 export function parseArguments(arguments_: string[]): ParsedArguments {
+  if (arguments_[0] === "email") {
+    const operation = arguments_[1];
+    if (operation === "accounts") {
+      const { flags } = parseNamedOptions(arguments_.slice(2), {
+        values: [],
+        booleans: ["--json"],
+      });
+      return { action: "email_accounts", json: flags.has("--json") };
+    }
+    const serverId = normalizeUuid(requiredPositional(arguments_, 2));
+    if (operation === "list") {
+      const { flags } = parseNamedOptions(arguments_.slice(3), {
+        values: [],
+        booleans: ["--json"],
+      });
+      return { action: "email_list", serverId, json: flags.has("--json") };
+    }
+    if (operation !== "set" && operation !== "remove") throw usageError();
+    const provider = requiredPositional(arguments_, 3);
+    if (provider !== "google" && provider !== "microsoft") throw usageError();
+    const rawId = requiredPositional(arguments_, 4);
+    const accountId = Number(rawId);
+    if (!/^[1-9][0-9]*$/.test(rawId) || !Number.isSafeInteger(accountId))
+      throw usageError();
+    const { values, flags } = parseNamedOptions(arguments_.slice(5), {
+      values: operation === "set" ? ["--policy"] : [],
+      booleans: ["--json"],
+    });
+    const json = flags.has("--json");
+    if (operation === "remove")
+      return { action: "email_remove", serverId, provider, accountId, json };
+    const policy = values["--policy"];
+    if (
+      policy !== "read_only" &&
+      policy !== "write_with_approval_read" &&
+      policy !== "write_read"
+    )
+      throw usageError();
+    return { action: "email_set", serverId, provider, accountId, policy, json };
+  }
+  if (arguments_[0] === "bug" || arguments_[0] === "feedback") {
+    const bug = arguments_[0] === "bug";
+    if (arguments_[1] !== (bug ? "report" : "send")) throw usageError();
+    const { values, flags } = parseNamedOptions(arguments_.slice(2), {
+      values: ["--title", "--body"],
+      booleans: ["--json"],
+    });
+    const title = values["--title"]?.trim();
+    const body = values["--body"]?.trim();
+    if (!title || !body || [...title].length > 255 || [...body].length > 20000)
+      throw usageError();
+    return {
+      action: "feedback",
+      label: bug ? "bug" : "enhancement",
+      title,
+      body,
+      json: flags.has("--json"),
+    };
+  }
   if (arguments_[0] === "git") {
     const operation = arguments_[1];
     if (operation === "repos") {
@@ -889,5 +1005,5 @@ function usageError(): TeamClawsError {
 }
 
 export function helpText(): string {
-  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws users add <target> <email> [--sudo] [--json]\n  teamclaws users remove <target> <email> [--json]\n  teamclaws users list <target> [--json]\n  teamclaws login <email> [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws git repos [--json]\n  teamclaws git list <server-id> [--json]\n  teamclaws git set <server-id> <repository-id> --issues <none|read|write> --contents <none|read|write> --pull-requests <none|read|write> --workflows <none|write> [--json]\n  teamclaws git remove <server-id> <repository-id> [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
+  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws users add <target> <email> [--sudo] [--json]\n  teamclaws users remove <target> <email> [--json]\n  teamclaws users list <target> [--json]\n  teamclaws login <email> [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws email accounts [--json]\n  teamclaws email list <server-id> [--json]\n  teamclaws email set <server-id> <google|microsoft> <account-id> --policy <read_only|write_with_approval_read|write_read> [--json]\n  teamclaws email remove <server-id> <google|microsoft> <account-id> [--json]\n  teamclaws bug report --title <text> --body <text> [--json]\n  teamclaws feedback send --title <text> --body <text> [--json]\n  teamclaws git repos [--json]\n  teamclaws git list <server-id> [--json]\n  teamclaws git set <server-id> <repository-id> --issues <none|read|write> --contents <none|read|write> --pull-requests <none|read|write> --workflows <none|write> [--json]\n  teamclaws git remove <server-id> <repository-id> [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
 }

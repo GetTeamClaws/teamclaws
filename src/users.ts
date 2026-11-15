@@ -38,6 +38,8 @@ const failureMessages: Record<string, string> = {
   invalid_request: "The workspace rejected the add-user request.",
   invite_delivery_failed:
     "The invitation could not be delivered. Check its status before retrying.",
+  invitation_rate_limited:
+    "This workspace has reached its invitation email limit. Try again later.",
   outcome_unverified:
     "The invitation outcome could not be verified. Check its status before retrying.",
 };

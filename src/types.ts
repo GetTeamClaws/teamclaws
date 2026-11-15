@@ -69,6 +69,41 @@ export type ServerMetadataUpdate = { alias?: string; description?: string };
 
 export type GitAccessLevel = "none" | "read" | "write";
 
+export type EmailProvider = "google" | "microsoft";
+export type EmailAssignmentPolicy =
+  "read_only" | "write_with_approval_read" | "write_read";
+export type EmailAccount = {
+  provider: EmailProvider;
+  account_id: number;
+  email: string;
+};
+export type EmailAccountList = {
+  accounts: Array<
+    EmailAccount & { permission_level: "read_only" | "read_write" }
+  >;
+  connect_url: string;
+};
+export type EmailAssignmentList = {
+  server_id: string;
+  accounts: Array<EmailAccount & { assignment_policy: EmailAssignmentPolicy }>;
+};
+export type EmailAssignmentResult = EmailAccount & {
+  server_id: string;
+  assignment_policy: EmailAssignmentPolicy | null;
+  code: "permissions_set" | "removed" | "already_unassigned";
+};
+export type FeedbackLabel = "bug" | "enhancement";
+export type FeedbackResult = {
+  id: string;
+  source: "cli";
+  label: FeedbackLabel;
+  title: string;
+  status: "submitted";
+  github_issue_number: number;
+  github_issue_url: string;
+  remaining_today: number;
+};
+
 export type GitPermissionMap = {
   issues: GitAccessLevel;
   contents: GitAccessLevel;

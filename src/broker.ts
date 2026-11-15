@@ -16,6 +16,14 @@ import {
 import { TeamClawsError } from "./errors.js";
 import { errorFromResponse, requestJson, type FetchLike } from "./http.js";
 import type {
+  EmailProvider,
+  EmailAssignmentPolicy,
+  EmailAccount,
+  EmailAccountList,
+  EmailAssignmentList,
+  EmailAssignmentResult,
+  FeedbackLabel,
+  FeedbackResult,
   GitAccessLevel,
   GitAssignmentList,
   GitAssignmentResult,
@@ -45,6 +53,7 @@ export type BrokerOptions = {
 };
 
 const CONNECTED_GITHUB_URL = "https://www.teamclaws.com/app/connected-github/";
+const CONNECTED_EMAIL_URL = "https://www.teamclaws.com/app/connected-email/";
 const GIT_PERMISSION_KEYS = [
   "issues",
   "contents",
@@ -144,6 +153,201 @@ export class BrokerClient {
         return gitRepository(row);
       }),
       connect_url: body.connect_url,
+    };
+  }
+
+  async emailAccounts(signal?: AbortSignal): Promise<EmailAccountList> {
+    const body = await this.emailRequest(
+      "GET",
+      `${API_BASE}email-accounts/`,
+      undefined,
+      signal,
+    );
+    if (
+      !Array.isArray(body.accounts) ||
+      body.connect_url !== CONNECTED_EMAIL_URL
+    )
+      throw invalidEmailResponse();
+    return {
+      accounts: body.accounts.map((row: unknown) => {
+        if (
+          !isObject(row) ||
+          (row.permission_level !== "read_only" &&
+            row.permission_level !== "read_write")
+        )
+          throw invalidEmailResponse();
+        return { ...emailAccount(row), permission_level: row.permission_level };
+      }),
+      connect_url: CONNECTED_EMAIL_URL,
+    };
+  }
+
+  async emailAssignments(
+    serverId: string,
+    signal?: AbortSignal,
+  ): Promise<EmailAssignmentList> {
+    const id = normalizeUuid(serverId);
+    const body = await this.emailRequest(
+      "GET",
+      `${API_BASE}servers/${id}/email-accounts/`,
+      undefined,
+      signal,
+    );
+    if (body.server_id !== id || !Array.isArray(body.accounts))
+      throw invalidEmailResponse();
+    return {
+      server_id: id,
+      accounts: body.accounts.map((row: unknown) => {
+        if (!isObject(row)) throw invalidEmailResponse();
+        return {
+          ...emailAccount(row),
+          assignment_policy: emailPolicy(row.assignment_policy),
+        };
+      }),
+    };
+  }
+
+  async changeEmailAssignment(
+    serverId: string,
+    provider: EmailProvider,
+    accountId: number,
+    policy?: EmailAssignmentPolicy,
+    signal?: AbortSignal,
+  ): Promise<EmailAssignmentResult> {
+    const id = normalizeUuid(serverId);
+    const body = await this.emailRequest(
+      policy ? "POST" : "DELETE",
+      `${API_BASE}servers/${id}/email-accounts/${provider}/${accountId}/`,
+      policy ? { assignment_policy: policy } : undefined,
+      signal,
+    );
+    const account = emailAccount(body);
+    if (
+      body.server_id !== id ||
+      account.provider !== provider ||
+      account.account_id !== accountId
+    )
+      throw invalidEmailResponse();
+    const code = body.code;
+    if (policy) {
+      const effective = emailPolicy(body.assignment_policy);
+      if (
+        code !== "permissions_set" ||
+        (effective !== policy && effective !== "read_only")
+      )
+        throw invalidEmailResponse();
+      return { ...account, server_id: id, code, assignment_policy: effective };
+    }
+    if (
+      (code !== "removed" && code !== "already_unassigned") ||
+      body.assignment_policy !== null
+    )
+      throw invalidEmailResponse();
+    return { ...account, server_id: id, code, assignment_policy: null };
+  }
+
+  private async emailRequest(
+    method: "GET" | "POST" | "DELETE",
+    url: string,
+    body?: { assignment_policy: EmailAssignmentPolicy },
+    signal?: AbortSignal,
+  ): Promise<Record<string, unknown>> {
+    const response = await requestJson(this.fetcher, url, {
+      method,
+      headers: await this.issuerHeaders(method, url),
+      ...(body ? { body } : {}),
+      ...(signal ? { signal } : {}),
+    });
+    if (response.status !== 200) {
+      const error = errorFromResponse(response, "email_permissions_failed");
+      if (
+        error.code === "account_unavailable" &&
+        isObject(response.body) &&
+        isObject(response.body.error) &&
+        response.body.error.connect_url === CONNECTED_EMAIL_URL
+      )
+        throw new TeamClawsError(error.code, error.message, {
+          exitCode: error.exitCode,
+          connectUrl: CONNECTED_EMAIL_URL,
+        });
+      throw error;
+    }
+    if (!isObject(response.body)) throw invalidEmailResponse();
+    return response.body;
+  }
+
+  async submitFeedback(
+    label: FeedbackLabel,
+    title: string,
+    body: string,
+    signal?: AbortSignal,
+  ): Promise<FeedbackResult> {
+    const url = `${API_BASE}feedback/`;
+    const response = await requestJson(this.fetcher, url, {
+      method: "POST",
+      headers: await this.issuerHeaders("POST", url),
+      body: { label, title, body },
+      ...(signal ? { signal } : {}),
+    });
+    if (response.status < 200 || response.status >= 300) {
+      const error = errorFromResponse(response, "feedback_failed");
+      const errorBody = isObject(response.body) ? response.body : {};
+      const detail = errorBody.detail;
+      const fieldErrors = ["title", "body", "non_field_errors"]
+        .flatMap((field) => {
+          const messages = errorBody[field];
+          return Array.isArray(messages)
+            ? messages
+                .filter(
+                  (message): message is string => typeof message === "string",
+                )
+                .map((message) => `${field}: ${message}`)
+            : [];
+        })
+        .join(" ");
+      throw new TeamClawsError(
+        error.code,
+        typeof detail === "string" ? detail : fieldErrors || error.message,
+        { exitCode: error.exitCode },
+      );
+    }
+    const result = response.body;
+    if (
+      !isObject(result) ||
+      result.source !== "cli" ||
+      result.label !== label ||
+      result.title !== title ||
+      result.status !== "submitted" ||
+      !Number.isSafeInteger(result.github_issue_number) ||
+      Number(result.github_issue_number) <= 0 ||
+      !Number.isSafeInteger(result.remaining_today) ||
+      Number(result.remaining_today) < 0
+    )
+      throw new TeamClawsError(
+        "invalid_response",
+        "TeamClaws returned an invalid feedback receipt.",
+        { exitCode: 9 },
+      );
+    const issueUrl = requireString(
+      result.github_issue_url,
+      "feedback issue URL",
+      2048,
+    );
+    if (!issueUrl.startsWith("https://github.com/"))
+      throw new TeamClawsError(
+        "invalid_response",
+        "TeamClaws returned an invalid feedback issue URL.",
+        { exitCode: 9 },
+      );
+    return {
+      id: normalizeUuid(result.id),
+      source: "cli",
+      label,
+      title,
+      status: "submitted",
+      github_issue_number: Number(result.github_issue_number),
+      github_issue_url: issueUrl,
+      remaining_today: Number(result.remaining_today),
     };
   }
 
@@ -413,6 +617,38 @@ function gitPermissions(value: unknown): GitPermissionMap {
     pull_requests: access("pull_requests"),
     workflows,
   };
+}
+
+function invalidEmailResponse(): TeamClawsError {
+  return new TeamClawsError(
+    "invalid_response",
+    "TeamClaws returned an invalid email permissions response.",
+    { exitCode: 9 },
+  );
+}
+
+function emailAccount(row: Record<string, unknown>): EmailAccount {
+  if (
+    (row.provider !== "google" && row.provider !== "microsoft") ||
+    !Number.isSafeInteger(row.account_id) ||
+    Number(row.account_id) <= 0
+  )
+    throw invalidEmailResponse();
+  return {
+    provider: row.provider,
+    account_id: Number(row.account_id),
+    email: requireString(row.email, "email account", 254),
+  };
+}
+
+function emailPolicy(value: unknown): EmailAssignmentPolicy {
+  if (
+    value !== "read_only" &&
+    value !== "write_with_approval_read" &&
+    value !== "write_read"
+  )
+    throw invalidEmailResponse();
+  return value;
 }
 
 function invalidMetadataResponse(): TeamClawsError {

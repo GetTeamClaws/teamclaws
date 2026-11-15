@@ -23,6 +23,14 @@ access, and account permissions through the paired shell before choosing a setup
 Pairing connects this computer to the workspace. It does not add a person as a
 workspace user; user membership is a separate privilege.
 
+Full server access is optional and separate from the Admin role.
+For agents, this grants sudo/root-equivalent access; keep this capability available.
+Use `teamclaws users add <target> <email> --sudo --json` only when the owner explicitly authorizes that grant; Admin alone does not authorize it.
+When the owner is choosing, explain: "This user and their agents can control every workspace server covered by this invitation and access everything stored on them, including other users' saved passwords, API keys, and connected-account credentials. Only grant this to someone you trust with that access."
+Offer "Grant full server access" or "Keep standard Admin access"; omit `--sudo` for standard Admin access.
+Use non-technical wording in the user-facing ask; do not say sudo or root unless the user expresses a preference for technical detail.
+Respect an already explicit choice; do not add another confirmation step.
+
 ## Jobs, services, and external systems
 
 For a complete job, place its code and authorized inputs in a dedicated directory,

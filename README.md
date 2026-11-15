@@ -273,8 +273,8 @@ acceptance. Existing memberships and pending invitations are preserved without
 promotion or resend. If a request has an uncertain network outcome, inspect the
 invitation status before trying again; the command does not blindly retry it.
 
-The owner can include `--sudo` when inviting a `superuser` to grant full sudo
-access after acceptance:
+The owner can include `--sudo` when inviting a `superuser` to grant full server access after acceptance, covering every workspace server included in the invitation.
+This user and their agents can control those servers and access everything stored on them, including other users' saved passwords, API keys, and connected-account credentials. Only grant this to someone you trust with that access:
 
 ```text
 teamclaws users add <target> <email> --sudo
@@ -314,6 +314,31 @@ memberships, or invitation state. It requires a workspace with the users-list AP
 When supplied by the workspace, each entry includes its saved `sudo_enabled`
 status. An accepted invitation's selection is historical; the current member's
 status determines their current access.
+
+## Manage email access for a server
+
+```sh
+teamclaws email accounts
+teamclaws email list <server-id>
+teamclaws email set <server-id> google <account-id> --policy read_only
+teamclaws email set <server-id> microsoft <account-id> --policy write_with_approval_read
+teamclaws email remove <server-id> google <account-id>
+```
+
+Owners can assign or remove their connected Google and Microsoft accounts on their servers. Find IDs with `servers list` and `email accounts`. Connect a missing account at [Connected Email](https://www.teamclaws.com/app/connected-email/).
+
+Choose `read_only`, `write_with_approval_read`, or `write_read`. The command prints the effective saved policy. Read-only account credentials restrict the saved policy to `read_only`. Removal also succeeds when the account is already unassigned. Check `email list` after an uncertain mutation before retrying.
+
+`servers list` shows assigned email and X accounts. Each assigned X account appears by its handle. These email commands and the commands below support `--json`.
+
+## Submit a bug report or feedback
+
+```sh
+teamclaws bug report --title "Short summary" --body "What happened and how to reproduce it"
+teamclaws feedback send --title "Short summary" --body "Your suggestion"
+```
+
+These explicit submissions use the same intake as the site's corner feedback widget and return the submitted issue link. The shared limit is three submissions per day. Titles allow 255 characters and bodies allow 20,000 characters.
 
 ## Manage GitHub repository permissions for a server
 

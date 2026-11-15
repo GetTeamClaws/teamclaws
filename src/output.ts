@@ -2,6 +2,10 @@ import type { ConversationReference } from "./storage.js";
 import { OUTPUT_SCHEMA_VERSION } from "./constants.js";
 import type { TeamClawsError } from "./errors.js";
 import type {
+  EmailAccountList,
+  EmailAssignmentList,
+  EmailAssignmentResult,
+  FeedbackResult,
   AgentAction,
   ChatHistoryEntry,
   ChatHistoryMessage,
@@ -594,6 +598,61 @@ export class Output {
     );
   }
 
+  emailAccounts(result: EmailAccountList): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "email_accounts",
+      ...result,
+    });
+    if (this.json) return;
+    for (const account of result.accounts)
+      this.stdout.write(
+        `${account.provider} ${account.account_id}  ${account.email}  ${account.permission_level}\n`,
+      );
+    this.stdout.write(
+      `${result.accounts.length ? "Missing an account?" : "You don't have any email accounts connected."} Go to ${result.connect_url} to connect one.\n`,
+    );
+  }
+
+  emailAssignments(result: EmailAssignmentList): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "email_assignments",
+      ...result,
+    });
+    if (this.json) return;
+    if (!result.accounts.length)
+      this.stdout.write(`No email accounts assigned to ${result.server_id}.\n`);
+    for (const account of result.accounts)
+      this.stdout.write(
+        `${account.provider} ${account.account_id}  ${account.email}  ${account.assignment_policy}\n`,
+      );
+  }
+
+  emailAssignmentResult(result: EmailAssignmentResult): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "email_assignment_result",
+      ...result,
+    });
+    if (!this.json)
+      this.stdout.write(
+        `${result.email} (${result.provider} ${result.account_id}) on ${result.server_id}: ${result.assignment_policy ?? result.code}\n`,
+      );
+  }
+
+  feedbackResult(result: FeedbackResult): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "feedback_result",
+      ...result,
+    });
+    if (!this.json)
+      this.stdout.write(
+        `Submitted ${result.label === "bug" ? "bug report" : "feedback"}: ${result.github_issue_url}\n`,
+      );
+  }
+
   gitAssignments(result: GitAssignmentList): void {
     this.event({
       schema_version: OUTPUT_SCHEMA_VERSION,
@@ -657,7 +716,7 @@ export class Output {
     });
     if (!this.json) {
       const messages: Record<UsersAddResult["code"], string> = {
-        invited: `Invitation sent for ${result.requested_role} access${result.sudo_enabled === true ? " with sudo" : result.sudo_enabled === false ? " without sudo" : ""}. Access begins after acceptance.`,
+        invited: `Invitation sent for ${result.requested_role} access${result.sudo_enabled === true ? " with full server access" : result.sudo_enabled === false ? " without full server access" : ""}. Access begins after acceptance.`,
         already_pending: "An invitation is already pending; it was not resent.",
         already_member: "Already a member; access unchanged.",
         already_owner: "Already the owner; access unchanged.",
@@ -690,13 +749,13 @@ export class Output {
       this.stdout.write("Current members:\n");
       for (const member of result.members)
         this.stdout.write(
-          `${member.email}: ${member.role}${member.is_owner ? " (owner)" : ""}${member.sudo_enabled === true ? " — sudo enabled" : member.sudo_enabled === false ? " — sudo disabled" : ""}\n`,
+          `${member.email}: ${member.role}${member.is_owner ? " (owner)" : ""}${member.sudo_enabled === true ? " — full server access enabled" : member.sudo_enabled === false ? " — full server access disabled" : ""}\n`,
         );
       if (!result.members.length) this.stdout.write("No members returned.\n");
       this.stdout.write("Invitations:\n");
       for (const invite of result.invites)
         this.stdout.write(
-          `${invite.email}: ${invite.status}${invite.is_expired && invite.status === "pending" ? " (expired)" : ""} — ${invite.role}${invite.sudo_enabled === true ? " — sudo enabled" : invite.sudo_enabled === false ? " — sudo disabled" : ""}\n`,
+          `${invite.email}: ${invite.status}${invite.is_expired && invite.status === "pending" ? " (expired)" : ""} — ${invite.role}${invite.sudo_enabled === true ? " — full server access enabled" : invite.sudo_enabled === false ? " — full server access disabled" : ""}\n`,
         );
       if (!result.invites.length)
         this.stdout.write("No pending or accepted invitations.\n");
