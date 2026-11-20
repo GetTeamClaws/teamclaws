@@ -17,6 +17,7 @@ import { basename, dirname, join } from "node:path";
 import { promisify } from "node:util";
 
 import { TeamClawsError } from "./errors.js";
+import { jwkThumbprint, type MachineKeyReference } from "./machine-key.js";
 import {
   parseDurableAuthorization,
   type DurableAuthorization,
@@ -61,10 +62,19 @@ export type FileStoreOptions = {
   platform?: NodeJS.Platform;
 };
 
+export type PendingSignup = {
+  request_id: string;
+  email: string;
+  expires_at: string;
+  code_verifier: string;
+  machine_key: MachineKeyReference;
+};
+
 export class CredentialStore {
   readonly root: string;
   readonly loginPath: string;
   readonly authorizationPath: string;
+  readonly signupPath: string;
   readonly workspaceDirectory: string;
   private readonly platform: NodeJS.Platform;
 
@@ -72,6 +82,7 @@ export class CredentialStore {
     this.root = options.root ?? defaultRoot();
     this.loginPath = join(this.root, "cli-auth.json");
     this.authorizationPath = join(this.root, "cli-authorization.json");
+    this.signupPath = join(this.root, "cli-signup.json");
     this.workspaceDirectory = join(this.root, "clawgate-devices");
     this.platform = options.platform ?? process.platform;
   }
@@ -109,6 +120,21 @@ export class CredentialStore {
         if (error.code !== "ENOENT") throw storageError();
       },
     );
+  }
+
+  async readSignup(): Promise<PendingSignup | undefined> {
+    const value = await this.readJsonIfPresent(this.signupPath);
+    return value === undefined ? undefined : parsePendingSignup(value);
+  }
+
+  async writeSignup(pending: PendingSignup): Promise<void> {
+    await this.writePrivateJson(this.signupPath, parsePendingSignup(pending));
+  }
+
+  async removeSignup(): Promise<void> {
+    await unlink(this.signupPath).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== "ENOENT") throw storageError();
+    });
   }
 
   workspacePath(serverId: string): string {
@@ -576,6 +602,43 @@ function storageError(): TeamClawsError {
     "TeamClaws could not protect the local credential file.",
     { exitCode: 9 },
   );
+}
+
+function parsePendingSignup(value: unknown): PendingSignup {
+  if (!isObject(value) || !isObject(value.machine_key)) throw storageError();
+  const key = value.machine_key;
+  if (
+    typeof value.email !== "string" ||
+    value.email.length > 254 ||
+    !value.email.includes("@") ||
+    typeof value.expires_at !== "string" ||
+    value.expires_at.length > 64 ||
+    !Number.isFinite(Date.parse(value.expires_at)) ||
+    typeof value.code_verifier !== "string" ||
+    !/^[A-Za-z0-9_-]{43}$/u.test(value.code_verifier) ||
+    !["windows-cng", "posix-file"].includes(String(key.provider)) ||
+    typeof key.name !== "string" ||
+    !/^teamclaws-cli-[0-9a-f-]{36}$/u.test(key.name) ||
+    !isObject(key.public_jwk) ||
+    key.public_jwk.kty !== "EC" ||
+    key.public_jwk.crv !== "P-256" ||
+    typeof key.public_jwk.x !== "string" ||
+    !/^[A-Za-z0-9_-]{43}$/u.test(key.public_jwk.x) ||
+    typeof key.public_jwk.y !== "string" ||
+    !/^[A-Za-z0-9_-]{43}$/u.test(key.public_jwk.y) ||
+    typeof key.jkt !== "string"
+  )
+    throw storageError();
+  const machineKey = key as unknown as MachineKeyReference;
+  if (jwkThumbprint(machineKey.public_jwk) !== machineKey.jkt)
+    throw storageError();
+  return {
+    request_id: normalizeUuid(value.request_id, "signup request identifier"),
+    email: value.email,
+    expires_at: value.expires_at,
+    code_verifier: value.code_verifier,
+    machine_key: machineKey,
+  };
 }
 
 function parseConversationReference(

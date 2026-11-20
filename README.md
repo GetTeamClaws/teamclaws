@@ -42,6 +42,41 @@ GitHub source ZIPs must be built before use; they are not npm installers.
 
 ## Agent onboarding
 
+### New accounts through email
+
+For an authorized new-account signup, an agent with existing permission to read
+the supplied mailbox can use:
+
+```text
+teamclaws signup <email> --json
+teamclaws signup verify --code-stdin --json
+```
+
+The first command stores a private pending request and exits. `signup_pending`
+means the request was accepted, not that an account was created or email delivered.
+If eligible, the inbox receives a single-use code valid for 15 minutes. Supply
+that code to the second command through the execution tool's non-TTY stdin,
+ending with a newline. Never put it in command arguments, shell text, chat, or
+logs. The CLI retains its separate secret and machine key; neither is emailed.
+
+This also supports fresh email confirmation after access issued by this signup
+flow was rejected. Only the backend can determine that narrow eligibility;
+ordinary existing accounts still use browser login. Fresh confirmation creates
+new authorization and never reactivates rejected access.
+To reconfirm, start signup again after the denial and use its newly emailed code;
+an earlier code or pending request cannot reconfirm access.
+An active saved login
+blocks signup; an authoritatively revoked login can be cleared by the normal
+status check. Network failures preserve local state and stop.
+
+Success uses the normal `login_complete` event and saved CLI authorization.
+Then list workspaces and follow the user's explicit selection for existing
+pairing. Signup does not read email, open a browser, buy a workspace, or pair one.
+Do not automatically retry a rejected or uncertain exchange. If the account was
+created but its successful response was lost, browser login is the recovery path.
+
+### Existing account workflow
+
 > Install teamclaws@latest, read its agent skills, and help me connect to my cloud workspace.
 
 Installation and project transfer instructions: https://teamclaws.com/start.

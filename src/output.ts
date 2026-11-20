@@ -78,6 +78,20 @@ export class Output {
     }
   }
 
+  signupPending(requestId: string, email: string, expiresAt: string): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "signup_pending",
+      request_id: requestId,
+      email,
+      expires_at: expiresAt,
+    });
+    if (!this.json)
+      this.stdout.write(
+        "If this email is eligible, check its inbox for a TeamClaws signup code. Provide it with `teamclaws signup verify --code-stdin`.\n",
+      );
+  }
+
   loginComplete(user: SafeUser): void {
     this.event({
       schema_version: OUTPUT_SCHEMA_VERSION,

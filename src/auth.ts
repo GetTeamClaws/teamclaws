@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import {
   API_BASE,
   API_V2_BASE,
@@ -20,6 +21,7 @@ import {
   requireHttpsUrl,
   requireInteger,
   requireString,
+  normalizeUuid,
 } from "./validation.js";
 import { openExternalBrowser } from "./browser.js";
 import {
@@ -120,6 +122,137 @@ export class AuthService {
       }
       throw error;
     }
+  }
+
+  async signup(email: string, signal?: AbortSignal): Promise<void> {
+    const boundEmail = parseLoginEmail(email);
+    if ((await this.store.readAuthorization()) && (await this.status(signal))) {
+      throw new TeamClawsError(
+        "already_signed_in",
+        "This CLI is already signed in. Signup will not switch accounts.",
+        { exitCode: 3 },
+      );
+    }
+    const machineKey = await this.machineKeys.create();
+    const verifier = randomBytes(32).toString("base64url");
+    const response = await requestJson(this.fetcher, `${API_BASE}signup/`, {
+      method: "POST",
+      body: {
+        email: boundEmail,
+        code_challenge: createHash("sha256")
+          .update(verifier, "ascii")
+          .digest("base64url"),
+        machine_jwk: machineKey.public_jwk,
+      },
+      timeoutMs: null,
+      ...(signal ? { signal } : {}),
+    }).catch(() => {
+      throw signupError(0, undefined);
+    });
+    if (response.status !== 202)
+      throw signupError(response.status, response.body);
+    if (!isObject(response.body)) throw invalidTokenResponse();
+    assertExactKeys(
+      response.body,
+      ["request_id", "expires_at"],
+      [],
+      "signup response",
+    );
+    const expiresAt = requireString(
+      response.body.expires_at,
+      "signup expiry",
+      64,
+    );
+    if (!Number.isFinite(Date.parse(expiresAt))) throw invalidTokenResponse();
+    const requestId = normalizeUuid(
+      response.body.request_id,
+      "signup request identifier",
+    );
+    await this.store.writeSignup({
+      request_id: requestId,
+      email: boundEmail,
+      expires_at: expiresAt,
+      code_verifier: verifier,
+      machine_key: machineKey,
+    });
+    this.output.signupPending(requestId, boundEmail, expiresAt);
+  }
+
+  async verifySignup(code: string, signal?: AbortSignal): Promise<SafeUser> {
+    if (!/^[A-Za-z0-9_-]{43}$/u.test(code)) {
+      throw new TeamClawsError(
+        "invalid_command",
+        "Provide the signup code through non-TTY stdin.",
+        { exitCode: 2 },
+      );
+    }
+    if ((await this.store.readAuthorization()) && (await this.status(signal))) {
+      throw new TeamClawsError(
+        "already_signed_in",
+        "This CLI is already signed in. Signup will not switch accounts.",
+        { exitCode: 3 },
+      );
+    }
+    const pending = await this.store.readSignup();
+    if (!pending)
+      throw new TeamClawsError(
+        "signup_required",
+        "Start signup with `teamclaws signup <email>` first.",
+        { exitCode: 3 },
+      );
+    const url = `${API_BASE}signup/verify/`;
+    const signer = new TargetAuthorization(
+      this.store,
+      this.fetcher,
+      this.machineKeys,
+      this.now,
+    );
+    const response = await requestJson(this.fetcher, url, {
+      method: "POST",
+      headers: { DPoP: await signer.dpop(pending.machine_key, "POST", url) },
+      body: {
+        request_id: pending.request_id,
+        code,
+        code_verifier: pending.code_verifier,
+      },
+      timeoutMs: null,
+      ...(signal ? { signal } : {}),
+    }).catch(() => {
+      throw signupError(0, undefined);
+    });
+    if (response.status !== 201)
+      throw signupError(response.status, response.body);
+    if (!isObject(response.body)) throw invalidTokenResponse();
+    assertExactKeys(
+      response.body,
+      ["authorization_id", "sub", "machine_jkt"],
+      [],
+      "signup verification response",
+    );
+    if (response.body.machine_jkt !== pending.machine_key.jkt)
+      throw invalidTokenResponse();
+    const grant: DurableAuthorization = {
+      version: 2,
+      authorization_id: normalizeUuid(
+        response.body.authorization_id,
+        "authorization identifier",
+      ),
+      sub: requireString(response.body.sub, "user subject", 255),
+      machine_key: pending.machine_key,
+    };
+    const user = await this.fetchIdentity(grant, signal).catch(() => {
+      throw signupError(0, undefined);
+    });
+    if (
+      user.id !== grant.sub ||
+      user.email.toLowerCase() !== pending.email.toLowerCase()
+    )
+      throw invalidTokenResponse();
+    await this.store.writeAuthorization(grant);
+    await this.store.removeLogin();
+    await this.store.removeSignup();
+    this.output.loginComplete(user);
+    return user;
   }
 
   async logout(signal?: AbortSignal, revokeGrant = false): Promise<boolean> {
@@ -405,6 +538,33 @@ function invalidTokenResponse(): TeamClawsError {
     {
       exitCode: 9,
     },
+  );
+}
+
+function signupError(status: number, body: unknown): TeamClawsError {
+  const errors: Record<string, [number, string]> = {
+    invalid_signup: [400, "TeamClaws could not verify this signup."],
+    signup_expired: [410, "This signup code has expired."],
+    signup_cancelled: [409, "This signup was cancelled."],
+    signup_consumed: [409, "This signup code has already been used."],
+    request_limited: [
+      429,
+      "TeamClaws is limiting signup requests. No request was retried.",
+    ],
+    issuer_unavailable: [
+      503,
+      "TeamClaws could not complete signup. The result is unconfirmed; do not automatically retry.",
+    ],
+  };
+  const code =
+    isObject(body) && isObject(body.error) ? body.error.code : undefined;
+  const known = typeof code === "string" ? errors[code] : undefined;
+  return new TeamClawsError(
+    known && known[0] === status ? String(code) : "signup_unconfirmed",
+    known && known[0] === status
+      ? known[1]
+      : "TeamClaws did not confirm signup. Do not automatically retry.",
+    { exitCode: 3 },
   );
 }
 

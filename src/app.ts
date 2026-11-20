@@ -206,6 +206,15 @@ export async function run(
   });
   try {
     switch (parsed.action) {
+      case "signup":
+        await auth.signup(parsed.email, signal);
+        return 0;
+      case "signup_verify":
+        await auth.verifySignup(
+          await readSignupCode(dependencies.io?.input ?? process.stdin, signal),
+          signal,
+        );
+        return 0;
       case "login":
         await auth.login(parsed.email, signal);
         return 0;
@@ -441,10 +450,11 @@ type ParsedArguments =
   | { action: "version"; json: boolean }
   | { action: "update"; json: boolean }
   | {
-      action: "login";
+      action: "login" | "signup";
       json: boolean;
       email: string;
     }
+  | { action: "signup_verify"; json: boolean }
   | {
       action: "auth_status" | "servers_list";
       json: boolean;
@@ -469,6 +479,22 @@ type ParsedArguments =
   | { action: "chat_watch"; json: boolean; options: ChatWatchOptions };
 
 export function parseArguments(arguments_: string[]): ParsedArguments {
+  if (arguments_[0] === "signup") {
+    if (arguments_[1] === "verify") {
+      const { flags } = parseNamedOptions(arguments_.slice(2), {
+        values: [],
+        booleans: ["--code-stdin", "--json"],
+      });
+      if (!flags.has("--code-stdin")) throw usageError();
+      return { action: "signup_verify", json: flags.has("--json") };
+    }
+    const email = requiredPositional(arguments_, 1);
+    const { flags } = parseNamedOptions(arguments_.slice(2), {
+      values: [],
+      booleans: ["--json"],
+    });
+    return { action: "signup", email, json: flags.has("--json") };
+  }
   if (arguments_[0] === "email") {
     const operation = arguments_[1];
     if (operation === "accounts") {
@@ -994,6 +1020,33 @@ async function promptForServer(
   }
 }
 
+async function readSignupCode(
+  input: NodeJS.ReadableStream,
+  signal?: AbortSignal,
+): Promise<string> {
+  if ((input as NodeJS.ReadStream).isTTY)
+    throw new TeamClawsError(
+      "invalid_command",
+      "Provide the signup code through non-TTY stdin; interactive input is not accepted.",
+      { exitCode: 2 },
+    );
+  const reader = createInterface({
+    input,
+    terminal: false,
+    ...(signal ? { signal } : {}),
+  });
+  try {
+    for await (const line of reader) return line;
+    if (signal?.aborted)
+      throw new TeamClawsError("cancelled", "Signup was cancelled.", {
+        exitCode: 8,
+      });
+    return "";
+  } finally {
+    reader.close();
+  }
+}
+
 function usageError(): TeamClawsError {
   return new TeamClawsError(
     "invalid_command",
@@ -1005,5 +1058,5 @@ function usageError(): TeamClawsError {
 }
 
 export function helpText(): string {
-  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws users add <target> <email> [--sudo] [--json]\n  teamclaws users remove <target> <email> [--json]\n  teamclaws users list <target> [--json]\n  teamclaws login <email> [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws email accounts [--json]\n  teamclaws email list <server-id> [--json]\n  teamclaws email set <server-id> <google|microsoft> <account-id> --policy <read_only|write_with_approval_read|write_read> [--json]\n  teamclaws email remove <server-id> <google|microsoft> <account-id> [--json]\n  teamclaws bug report --title <text> --body <text> [--json]\n  teamclaws feedback send --title <text> --body <text> [--json]\n  teamclaws git repos [--json]\n  teamclaws git list <server-id> [--json]\n  teamclaws git set <server-id> <repository-id> --issues <none|read|write> --contents <none|read|write> --pull-requests <none|read|write> --workflows <none|write> [--json]\n  teamclaws git remove <server-id> <repository-id> [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
+  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws users add <target> <email> [--sudo] [--json]\n  teamclaws users remove <target> <email> [--json]\n  teamclaws users list <target> [--json]\n  teamclaws login <email> [--json]\n  teamclaws signup <email> [--json]\n  teamclaws signup verify --code-stdin [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws email accounts [--json]\n  teamclaws email list <server-id> [--json]\n  teamclaws email set <server-id> <google|microsoft> <account-id> --policy <read_only|write_with_approval_read|write_read> [--json]\n  teamclaws email remove <server-id> <google|microsoft> <account-id> [--json]\n  teamclaws bug report --title <text> --body <text> [--json]\n  teamclaws feedback send --title <text> --body <text> [--json]\n  teamclaws git repos [--json]\n  teamclaws git list <server-id> [--json]\n  teamclaws git set <server-id> <repository-id> --issues <none|read|write> --contents <none|read|write> --pull-requests <none|read|write> --workflows <none|write> [--json]\n  teamclaws git remove <server-id> <repository-id> [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
 }

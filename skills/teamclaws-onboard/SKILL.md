@@ -44,6 +44,16 @@ workspace user; user membership is a separate privilege.
 
 ## Sign in
 
+For an authorized new account, or fresh confirmation after access from this
+signup flow was rejected, an agent with already authorized inbox access can use
+the two signup commands in [teamclaws-login](../teamclaws-login/SKILL.md).
+Explain that the email code authorizes this CLI; keep it out of chat and command
+arguments and supply it through non-TTY stdin. `signup_pending` is not confirmed
+delivery or account creation. Wait for `login_complete` and exit zero before
+discovery. Do not infer new-account eligibility from signed-out status, add
+mailbox access, automatically retry, or pair without a workspace selection.
+Ordinary existing accounts continue through the browser-login steps below.
+
 Run `teamclaws auth status --json`. If signed in, confirm the returned account
 and continue without another login. If signed out, follow
 [teamclaws-login](../teamclaws-login/SKILL.md): ask for the user's TeamClaws email

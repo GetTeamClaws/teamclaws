@@ -5,6 +5,31 @@ description: Sign the official TeamClaws command-line client in, inspect its saf
 
 # TeamClaws command-line login
 
+## Authorized new-account signup
+
+If the user authorized a new account and this agent already has permission to
+read the supplied inbox, run `teamclaws signup <email> --json`. A
+`signup_pending` event is conditional acceptance, not proof of mail delivery or
+account creation. For eligible mailboxes, read the 15-minute single-use code.
+Run `teamclaws signup verify --code-stdin --json` and supply the code plus a
+newline using the execution tool's non-TTY stdin. Never expose the code in chat,
+command arguments, shell text, logs, or files. The CLI handles its private verifier
+and machine key itself. This path does not open a browser or read email for you.
+
+The same commands can reconfirm only accounts whose access from this signup
+flow was rejected; the backend checks eligibility and issues new authorization.
+Start signup again after the denial and use that request's new emailed code;
+do not reuse an earlier code or pending request for reconfirmation.
+They are not email login for ordinary existing accounts. An active CLI login
+blocks signup. Its normal status check may clear an authoritatively revoked
+login, but preserves state and stops on network errors. Do not automatically
+retry failed or unconfirmed signup. If an account was created and the successful
+exchange response was lost, use the existing browser-login path for recovery.
+After `login_complete` and exit zero, continue normal discovery and ask which
+workspace the user wants. Signup itself never buys or pairs a workspace.
+
+## Existing account browser login
+
 For install-and-connect requests, follow
 [teamclaws-onboard](../teamclaws-onboard/SKILL.md) for the conversation sequence.
 A status-only request runs only `teamclaws auth status --json` and stops.
