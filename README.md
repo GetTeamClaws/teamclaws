@@ -44,6 +44,9 @@ GitHub source ZIPs must be built before use; they are not npm installers.
 
 > Install teamclaws@latest, read its agent skills, and help me connect to my cloud workspace.
 
+Installation and project transfer instructions: https://teamclaws.com/start.
+Older `/tcpair` and `/tcdeploy` instructions are retired; use the bundled skills below.
+
 Start with [teamclaws-onboard](skills/teamclaws-onboard/SKILL.md). For a global
 installation, `npm root -g` locates the package root; read
 `teamclaws/skills/teamclaws-onboard/SKILL.md` beneath it. The package contains one
@@ -161,7 +164,7 @@ The `servers_list` event adds `workspace_count` and `discovery_state`:
 `no_workspaces` only for a verified count of zero, `ready` when any listed
 workspace is pairing-ready, `not_ready` when workspaces exist but none is ready,
 and `unknown` for an empty legacy response without a count. Discovery errors
-remain error events. A verified empty account uses https://teamclaws.com/app/ to
+remain error events. A verified empty account uses https://teamclaws.com/pricing/ to
 purchase a workspace. Existing owners whose machines are being prepared do not
 need another purchase. Targetless pairing requires explicit selection even for
 one result; agents present aliases and pass only user-selected stable IDs.

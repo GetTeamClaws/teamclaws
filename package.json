@@ -1,13 +1,31 @@
 {
   "name": "teamclaws",
-  "version": "2.0.21",
-  "description": "Official TeamClaws command-line client and agent skills",
+  "version": "2.0.22",
+  "description": "Move, share and manage AI agent projects in a TeamClaws cloud workspace. CLI, MCP and agent skills for Claude, ChatGPT, Cursor, Grok and more.",
+  "keywords": [
+    "teamclaws",
+    "teamclaws.com",
+    "ai-agents",
+    "move-project",
+    "share-project",
+    "cloud-workspace",
+    "agent-hosting",
+    "agent-control",
+    "control-plane",
+    "agent-gateway",
+    "agent-sandbox",
+    "agent-skills",
+    "agent-harness",
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "openclaw",
+    "claude",
+    "cursor",
+    "grok"
+  ],
   "license": "PolyForm-Shield-1.0.0",
   "homepage": "https://teamclaws.com",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/GetTeamClaws/teamclaws.git"
-  },
   "type": "module",
   "private": false,
   "engines": {

@@ -105,14 +105,14 @@ deliver it when received. Never offer this edit for a shared server whose
 
 - `discovery_state: no_workspaces` means the broker confirmed zero workspaces
   accessible for pairing, including owned workspaces still being prepared.
-  Direct the user to https://teamclaws.com/app/ to purchase a workspace, then
+  Direct the user to https://teamclaws.com/pricing/ to purchase a workspace, then
   resume discovery when they are ready.
 - `not_ready` means workspaces exist but none listed can be paired yet. Explain
   their state and offer to check again when ready; do not suggest another purchase.
 - `unknown` means the broker did not supply a complete inventory count. An empty
   list does not prove an empty account. Ask the user to check their workspaces at
   https://teamclaws.com/app/; only if they confirm they have none, direct them to
-  purchase there. Do not claim inventory support is deployed from local code alone.
+  https://teamclaws.com/pricing/ to purchase. Do not claim inventory support is deployed from local code alone.
 - With one pairing-ready workspace, show its alias and description and ask,
   “Would you like to pair with **[alias]** now?” Never automatically pair it.
 - With several, list each alias and description and ask, “Would you like to pair
