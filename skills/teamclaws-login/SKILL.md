@@ -7,8 +7,14 @@ description: Sign the official TeamClaws command-line client in, inspect its saf
 
 ## Authorized new-account signup
 
-If the user authorized a new account and this agent already has permission to
-read the supplied inbox, run `teamclaws signup <email> --json`. A
+The purpose of email signup is to let authorized agents create accounts without
+human intervention. With full permission to create the account and read the
+chosen inbox, proceed yourself; do not request another confirmation, require
+browser sign-in, or ask a human to retrieve an accessible code. Full permission
+does not supply missing tools or override an explicit restriction. A new customer
+does not need an existing TeamClaws account or workspace.
+
+If account creation and reading the supplied inbox are authorized, run `teamclaws signup <email> --json`. A
 `signup_pending` event is conditional acceptance, not proof of mail delivery or
 account creation. For eligible mailboxes, read the 15-minute single-use code.
 Run `teamclaws signup verify --code-stdin --json` and supply the code plus a
@@ -25,8 +31,12 @@ blocks signup. Its normal status check may clear an authoritatively revoked
 login, but preserves state and stops on network errors. Do not automatically
 retry failed or unconfirmed signup. If an account was created and the successful
 exchange response was lost, use the existing browser-login path for recovery.
-After `login_complete` and exit zero, continue normal discovery and ask which
-workspace the user wants. Signup itself never buys or pairs a workspace.
+After `login_complete` and exit zero, continue normal discovery. A new account
+normally needs a workspace: continue to https://teamclaws.com/pricing/ and choose
+and purchase a plan within the authority already granted. Obtain only missing
+plan or purchase decisions; do not repeat authorization questions. Signup itself
+does not buy or pair a workspace. Use an existing workspace selection, or ask
+which workspace to use if none was supplied.
 
 ## Existing account browser login
 

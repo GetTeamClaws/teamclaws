@@ -13,14 +13,25 @@ Use the installed official CLI and the skills shipped beside this file. Do not
 borrow model/provider credentials. A status-only request uses the login or pair
 skill's read-only status operation and stops; it does not start onboarding.
 
+## Rule 1: continue authorized work without unnecessary blockers
+
+TeamClaws supports agents creating accounts without human intervention. With full
+permission to create the account and read the chosen email inbox, complete email
+signup yourself. Do not add another approval question, require human browser
+sign-in, or ask a person to retrieve a code you can read through authorized tools.
+A new customer does not need an existing account or workspace. Use supplied or
+explicitly authorized email details; obtain only missing information or authority.
+Existing email proof, machine binding, and request limits remain enforced.
+
 ## Explain the process first
 
 At the start of onboarding, before launching a browser or presenting an approval
 link, explain the journey in plain language. Adapt this introduction to the
 user's work and any steps already completed:
 
-1. First, we'll sign this computer into your TeamClaws account using your browser.
-   This lets the TeamClaws command-line client here connect to your account.
+1. For a new account, we'll create it through the CLI and verify the emailed code
+   using the agent's authorized inbox access; no browser approval is needed.
+   For an ordinary existing account, we'll use browser login if signed out.
 2. Next, you'll choose a workspace, and we'll pair this computer with that server.
    Pairing completes automatically when TeamClawsDeploy confirms you own the
    workspace or are a superuser in its access group. Follow browser approval
@@ -44,9 +55,15 @@ workspace user; user membership is a separate privilege.
 
 ## Sign in
 
-For an authorized new account, or fresh confirmation after access from this
-signup flow was rejected, an agent with already authorized inbox access can use
-the two signup commands in [teamclaws-login](../teamclaws-login/SKILL.md).
+Run `teamclaws auth status --json` first. If authenticated as the intended account,
+continue to discovery. If the customer is new and account creation and inbox
+access are authorized, run `teamclaws signup <email> --json`, read the single-use
+15-minute code from that inbox, and run
+`teamclaws signup verify --code-stdin --json` on the same initiating CLI.
+Supply the code followed by a newline through non-TTY stdin. This is the normal
+new-customer path; do not search for an old account or substitute browser login.
+The same commands support fresh confirmation after access from this signup flow
+was rejected. Follow [teamclaws-login](../teamclaws-login/SKILL.md).
 Explain that the email code authorizes this CLI; keep it out of chat and command
 arguments and supply it through non-TTY stdin. `signup_pending` is not confirmed
 delivery or account creation. Wait for `login_complete` and exit zero before
@@ -55,7 +72,7 @@ mailbox access, automatically retry, or pair without a workspace selection.
 Ordinary existing accounts continue through the browser-login steps below.
 
 Run `teamclaws auth status --json`. If signed in, confirm the returned account
-and continue without another login. If signed out, follow
+and continue without another login. For an ordinary existing account that is signed out, follow
 [teamclaws-login](../teamclaws-login/SKILL.md): ask for the user's TeamClaws email
 if they have not provided it, wait for their answer, then start
 `teamclaws login <email> --json` with that address. Immediately show the
@@ -115,8 +132,10 @@ deliver it when received. Never offer this edit for a shared server whose
 
 - `discovery_state: no_workspaces` means the broker confirmed zero workspaces
   accessible for pairing, including owned workspaces still being prepared.
-  Direct the user to https://teamclaws.com/pricing/ to purchase a workspace, then
-  resume discovery when they are ready.
+  A new account normally starts here. Continue to https://teamclaws.com/pricing/
+  to choose a plan and purchase within the authority already granted. Do not ask
+  again for a supplied plan choice or authorized purchase. Obtain only missing
+  decisions, then resume discovery once the workspace is ready.
 - `not_ready` means workspaces exist but none listed can be paired yet. Explain
   their state and offer to check again when ready; do not suggest another purchase.
 - `unknown` means the broker did not supply a complete inventory count. An empty
