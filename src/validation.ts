@@ -653,6 +653,26 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
     }
     return {
       server_id: normalizeUuid(server.id),
+      ...(server.created_at !== undefined
+        ? {
+            created_at: requireIsoDate(
+              server.created_at,
+              "server creation time",
+            ),
+          }
+        : {}),
+      ...(server.deployment_status !== undefined
+        ? {
+            deployment_status:
+              server.deployment_status === null
+                ? null
+                : requireString(
+                    server.deployment_status,
+                    "deployment status",
+                    50,
+                  ),
+          }
+        : {}),
       ...(server.tier_name !== undefined
         ? {
             tier_name:

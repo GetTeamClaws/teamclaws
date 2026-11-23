@@ -190,9 +190,30 @@ export class Output {
         return;
       }
       servers.forEach((server, index) => {
+        const building =
+          !server.pairing_ready &&
+          server.deployment_status !== "failed" &&
+          (server.status === "creating" ||
+            (server.status === "running" &&
+              (server.deployment_status === "queued" ||
+                server.deployment_status === "running")));
+        const status = building
+          ? server.status === "creating"
+            ? "creating"
+            : "deploying"
+          : server.deployment_status === "failed" && !server.pairing_ready
+            ? `${server.status} — deployment needs review`
+            : server.status;
         this.stdout.write(
-          `${index + 1}. ${server.alias} — ${server.server_id} — ${server.workspace_url} — ${server.pairing_ready ? "ready to pair" : "not ready to pair"}\n`,
+          `${index + 1}. ${server.alias} — ${server.server_id} — ${server.workspace_url} — ${status} — ${server.pairing_ready ? "ready to pair" : "not ready to pair"}\n`,
         );
+        if (server.created_at)
+          this.stdout.write(`   Created: ${server.created_at}\n`);
+        if (building)
+          this.stdout.write(
+            "   Estimated build time: 10 minutes. Run teamclaws servers list again to check readiness.\n" +
+              `   If the build seems stuck: teamclaws bug report --title "Workspace build issue" --body "Server ${server.server_id}; created ${server.created_at ?? "unknown"}; describe what happened."\n`,
+          );
         if (server.description) this.stdout.write(`   ${server.description}\n`);
         if (server.resources) {
           this.stdout.write("   Resources:\n");

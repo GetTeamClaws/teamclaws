@@ -376,6 +376,12 @@ Choose `read_only`, `write_with_approval_read`, or `write_read`. The command pri
 
 ## Submit a bug report or feedback
 
+`teamclaws servers list` shows each server's status and creation timestamp.
+Creating or deploying workspaces show an estimated build time of 10 minutes;
+this is an estimate, not a deadline. Run the list again to check for
+`ready to pair`. Stopped servers remain listed with their actual status.
+If a build seems stuck, include its server ID and creation time in a bug report.
+
 ```sh
 teamclaws bug report --title "Short summary" --body "What happened and how to reproduce it"
 teamclaws feedback send --title "Short summary" --body "Your suggestion"
