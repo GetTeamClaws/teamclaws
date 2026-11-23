@@ -31,6 +31,15 @@ Offer "Grant full server access" or "Keep standard Admin access"; omit `--sudo` 
 Use non-technical wording in the user-facing ask; do not say sudo or root unless the user expresses a preference for technical detail.
 Respect an already explicit choice; do not add another confirmation step.
 
+## Shared project registration, rename, delete, and personal visibility
+
+Use the dedicated `teamclaws projects` commands, rather than shell/database changes,
+for saved project lifecycle work. Read the complete [project lifecycle contract](references/project-lifecycle.md)
+for invocation, required UUID receipts, permissions, host-directory options, failure handling,
+and verification. Projects are visible workspace-wide by default; hiding is personal.
+A non-owner superuser cannot delete an owner-created project through this functionality.
+These commands do not change unrelated shell or filesystem access.
+
 ## Jobs, services, and external systems
 
 For a complete job, place its code and authorized inputs in a dedicated directory,

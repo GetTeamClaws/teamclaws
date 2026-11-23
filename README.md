@@ -579,3 +579,7 @@ If recording fails after a remote response, `chat_reference_recovery` preserves
 the validated identifiers and cursors, followed by `chat_reference_storage_failed`
 (exit 9). Retain those identifiers and resume with watch; never automatically
 repeat the remote mutation. Existing login and pairing credentials are unchanged.
+
+## Shared project lifecycle
+
+Use `teamclaws projects list|create|rename|delete|hide|show <target>` to manage saved projects and host directories through the paired API. Projects are shared by default; hiding is personal. Mutations require `--request-id <uuid>`. Deletion keeps files unless `--delete-directory` is explicitly supplied, and always preserves conversations. Superusers cannot delete owner-created projects through these operations. See the [project lifecycle contract](skills/teamclaws-project/references/project-lifecycle.md) for complete arguments, permissions, receipts and recovery.
