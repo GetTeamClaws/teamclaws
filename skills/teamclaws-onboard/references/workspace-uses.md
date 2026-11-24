@@ -4,7 +4,7 @@ Read this reference when helping a user decide what to put on a workspace, or
 when carrying out the work they selected. Use their vocabulary and known
 projects to turn these capabilities into specific ideas. Describe the outcome
 first, then explain the setup it needs. Be descriptive when the user wants to
-explore; keep an ordinary post-pairing message focused on a few relevant ideas.
+explore; keep a getting-started message focused on a few relevant ideas.
 
 ## A server for the user's work
 
@@ -76,7 +76,7 @@ It can also receive webhooks or expose an API after the appropriate incoming
 HTTPS route and access controls are configured. Those requests can trigger a
 worker, update a dashboard, or start an authorized workflow. External access
 depends on network rules, destination permissions, credentials, and service
-limits. TeamClaws pairing supplies workspace access; the user must separately
+limits. TeamClaws account authorization supplies workspace shell access; the user must separately
 authorize the external operation. Keep secrets in the host's supported secret
 mechanism and out of chat, source files, and shell command arguments.
 

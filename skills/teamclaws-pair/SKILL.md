@@ -1,11 +1,11 @@
 ---
 name: teamclaws-pair
-description: Check or establish pairing with one TeamClaws workspace through the official CLI before authorized paired-shell administration.
+description: Check device-pairing status or carry out a user's request to pair this computer with a selected TeamClaws workspace.
 ---
 
 # Pair with TeamClaws
 
-For the full install-and-connect conversation, follow
+For getting a project running on a workspace, follow
 [teamclaws-onboard](../teamclaws-onboard/SKILL.md).
 
 Use the official `teamclaws` executable. Do not implement pairing inside this
@@ -131,7 +131,7 @@ report the listing failure, and do not invent an inventory or pair again.
 
 Read the onboarding skill's
 [workspace uses](../teamclaws-onboard/references/workspace-uses.md), then follow
-its post-pairing conversation guidance. Continue an already authorized task
+its project setup guidance. Continue an already authorized task
 automatically. Otherwise suggest concrete work suited to the user and ask for
 the next choice. Listing and suggestions do not authorize another pairing,
 remote chat, file transfer, sharing change, or deployment. A status-only request

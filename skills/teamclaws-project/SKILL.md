@@ -1,6 +1,6 @@
 ---
 name: teamclaws-project
-description: Find and retrieve authorized files from an authorized TeamClaws workspace, or put files, jobs, agents, and projects there and run them.
+description: Get a project, app, or job running on a TeamClaws workspace, or transfer and retrieve its authorized files through the CLI.
 ---
 
 # Put work on a TeamClaws server
