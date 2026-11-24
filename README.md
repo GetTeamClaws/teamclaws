@@ -94,7 +94,7 @@ shared workflow for login, alias-based user-selected pairing (including a single
 workspace), additional pairings, project transfer, and optional public/private
 live hosting. Login and pairing mechanics remain in their respective skills;
 [teamclaws-project](skills/teamclaws-project/SKILL.md) covers project work through
-the existing paired shell. Status-only requests do not start onboarding.
+the existing workspace shell. Status-only requests do not start onboarding.
 
 Before any browser authorization, the agent explains the process: sign this
 computer's CLI into the user's TeamClaws account through the browser, choose a
@@ -588,4 +588,4 @@ repeat the remote mutation. Existing login and pairing credentials are unchanged
 
 ## Shared project lifecycle
 
-Use `teamclaws projects list|create|rename|delete|hide|show <target>` to manage saved projects and host directories through the paired API. Projects are shared by default; hiding is personal. Mutations require `--request-id <uuid>`. Deletion keeps files unless `--delete-directory` is explicitly supplied, and always preserves conversations. Superusers cannot delete owner-created projects through these operations. See the [project lifecycle contract](skills/teamclaws-project/references/project-lifecycle.md) for complete arguments, permissions, receipts and recovery.
+Use `teamclaws projects list|create|rename|delete|hide|show <target>` to manage saved projects and host directories with account login, without requiring a saved device pairing. Existing paired connections keep their authentication path. Projects are shared by default; hiding is personal. Mutations require `--request-id <uuid>`. Deletion keeps files unless `--delete-directory` is explicitly supplied, and always preserves conversations. Superusers cannot delete owner-created projects through these operations. See the [project lifecycle contract](skills/teamclaws-project/references/project-lifecycle.md) for complete arguments, permissions, receipts and recovery.

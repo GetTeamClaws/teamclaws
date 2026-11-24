@@ -235,6 +235,7 @@ export async function run(
           parsePairingTarget(parsed.target),
           parsed.projectRequest,
           targetAuthorization,
+          broker,
           signal,
         );
         stdout.write(

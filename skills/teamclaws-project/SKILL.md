@@ -1,12 +1,12 @@
 ---
 name: teamclaws-project
-description: Find and retrieve authorized files from a paired TeamClaws workspace, or put files, jobs, agents, and projects there and run them.
+description: Find and retrieve authorized files from an authorized TeamClaws workspace, or put files, jobs, agents, and projects there and run them.
 ---
 
 # Put work on a TeamClaws server
 
 Use the conversation sequence in [teamclaws-onboard](../teamclaws-onboard/SKILL.md).
-Ask for the project if missing and the paired destination if ambiguous. Inspect
+Ask for the project if missing and the destination workspace if ambiguous. Inspect
 its files and instructions before asking for configuration already present.
 Preserve the source unless the user explicitly requests deletion. Do not copy
 provider credentials, CLI login files, device credentials, or unrelated secrets.
@@ -18,7 +18,7 @@ For ideas and the requirements behind them, read the onboarding skill's
 already named the job, files, agent, or project and asked you to run or deploy it,
 carry that task through instead of restarting a generic onboarding conversation.
 Inspect the destination's instructions, available runtimes, resources, network
-access, and account permissions through the paired shell before choosing a setup.
+access, and account permissions through the workspace shell before choosing a setup.
 
 Pairing connects this computer to the workspace. It does not add a person as a
 workspace user; user membership is a separate privilege.
@@ -40,10 +40,11 @@ and verification. Projects are visible workspace-wide by default; hiding is pers
 A non-owner superuser cannot delete an owner-created project through this functionality.
 These commands do not change unrelated shell or filesystem access.
 
-For shell-only administration, a valid CLI account login can authorize
-`teamclaws shell` without a saved device pairing. Do not start pairing merely
-to run that command. The project lifecycle and transfer instructions below
-retain their own prerequisites.
+A valid CLI account login can authorize `teamclaws shell` and the dedicated
+`teamclaws projects` lifecycle commands without a saved device pairing. Do not
+start pairing merely to run those commands. Project permissions and request
+receipts remain unchanged. File transfer uses that same workspace shell and
+does not require a saved device pairing.
 
 ## Jobs, services, and external systems
 
@@ -71,10 +72,11 @@ Only claim a CLI-to-browser handoff for the same conversation when supported and
 verified. Sharing access requires the user's intended recipients and permissions
 and the workspace's supported sharing controls.
 
-## Transfer through the existing paired shell
+## Transfer through the existing workspace shell
 
-Prerequisites: valid TeamClaws CLI login, verified pairing to the selected stable
-server identifier, and user authorization for the selected project/data. Use:
+Prerequisites: valid TeamClaws CLI login, access to the selected stable server
+identifier, and user authorization for the selected project/data. A saved device
+pairing is optional; existing paired connections retain their authentication path. Use:
 
 ```text
 teamclaws shell <server-id> --command <one-quoted-command-argument> --json
@@ -94,7 +96,7 @@ Default shared documents, reports, findings, and transfers to the provisioned
 `handoffs` directory unless the user names another destination. Keep projects in
 their selected directories; do not change the general working directory or move them.
 
-Discover the exact shared path through the existing paired shell:
+Discover the exact shared path through the existing workspace shell:
 
 ```text
 teamclaws shell <server-id> --command 'printf "%s\n" "$TEAMCLAWS_HANDOFFS_DIR"' --json
@@ -130,12 +132,12 @@ for a full path:
   and `/var/tmp/`. These are temporary locations, not durable storage.
 - The shared workspace, commonly `/home/teamclaws_user/`, including documented
   project, artifact, or handoff directories in `LOCAL_AGENT.md` or project instructions.
-- The paired user's `$HOME` and its `workspace/` directory. This private home
+- The execution user's `$HOME` and its `workspace/` directory. This private home
   can differ from the shared workspace and from another agent's home.
 
 These are likely locations, not a guarantee that every directory exists or is
 shared with every identity. Inspect the actual paths and permissions. A
-provider's private temporary namespace may differ from the paired shell's `/tmp`.
+provider's private temporary namespace may differ from the workspace shell's `/tmp`.
 Do not change permissions or switch identities to search inaccessible locations.
 
 Search the named directory and its children for the exact filename first;
@@ -151,7 +153,7 @@ directory symlinks explicitly without following them outside the authorized scop
 
 If the file is still unfound, report the actual searched locations and access
 failures before asking for its full path or originating chat/project. To retrieve
-a found non-secret file, return its bytes through the paired shell (base64 is
+a found non-secret file, return its bytes through the workspace shell (base64 is
 suitable), save them locally, and compare the remote and saved SHA-256 hashes.
 Preserve the remote original and do not print encoded file contents unnecessarily.
 
@@ -214,7 +216,7 @@ permission to access it. It is not open to the general public.”
 
 Both choices run live on TeamClaws. Carry out the user's selection using the
 workspace's supported hosting mechanisms. Read its machine instructions and
-runtime capability manifest through the paired shell, then follow its assigned
+runtime capability manifest through the workspace shell, then follow its assigned
 hosting skill if present. Do not assume an assigned skill exists on every host.
 
 Use a separate application directory, service, data store, and configuration.
