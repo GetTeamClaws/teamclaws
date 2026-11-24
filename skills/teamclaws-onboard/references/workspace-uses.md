@@ -12,9 +12,11 @@ A TeamClaws workspace provides a VPS: a virtual private server with its own
 server environment, storage, installed tools, and running processes. Within the
 account's permissions and the machine's resources, it can hold complete projects
 and execute their workloads. The official CLI can launch commands through the
-paired shell, place authorized files on the machine, inspect results, and help
+workspace shell, place authorized files on the machine, inspect results, and help
 set up applications and services. A linked AI provider is not required for shell
-work. There is no dedicated `teamclaws deploy` or file-transfer command; use the
+work. Shell-only commands can use account login without a saved device pairing;
+the CLI checks account access and binds each shell proof to this computer.
+There is no dedicated `teamclaws deploy` or file-transfer command; use the
 paired shell and the project skill's supported transfer and hosting procedures.
 
 Think of it as a workshop the user and their agents can reach from different

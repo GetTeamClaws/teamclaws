@@ -3,7 +3,8 @@ import { request as httpsRequest } from "node:https";
 import { Readable } from "node:stream";
 
 import { TeamClawsError } from "./errors.js";
-import { errorFromResponse, type FetchLike } from "./http.js";
+import type { BrokerClient } from "./broker.js";
+import { errorFromResponse, requestJson, type FetchLike } from "./http.js";
 import { requestTargetJson } from "./target-authorization.js";
 import type { CredentialStore } from "./storage.js";
 import type { PairingTarget } from "./types.js";
@@ -18,30 +19,53 @@ export async function runShell(
   target: PairingTarget,
   command: string,
   authorization: TargetAuthorization,
+  broker: BrokerClient,
   signal?: AbortSignal,
 ): Promise<ShellResult> {
   const credential = await store.findWorkspace(target);
-  if (!credential) {
-    throw new TeamClawsError(
-      "re_pair_required",
-      "No saved pairing was found for this workspace. Pair it first.",
-      { exitCode: 3 },
+  const options = {
+    method: "POST" as const,
+    textBody: command,
+    timeoutMs: null,
+    responseLimitBytes: null,
+    ...(signal ? { signal } : {}),
+  };
+  let response;
+  if (credential) {
+    const url = `${credential.origin}/teamclaws-admin/api/shell/`;
+    response = await requestTargetJson(
+      fetcher,
+      authorization,
+      url,
+      credential,
+      options,
     );
+  } else {
+    const inventory = await broker.servers(signal);
+    const matches = inventory.servers.filter((server) =>
+      "server_id" in target
+        ? server.server_id === target.server_id
+        : new URL(server.workspace_url).origin ===
+          new URL(target.workspace_url).origin,
+    );
+    if (matches.length !== 1)
+      throw new TeamClawsError(
+        "target_unavailable",
+        "The selected workspace is not available to this TeamClaws account.",
+        { exitCode: 3 },
+      );
+    const server = matches[0]!;
+    const url = `${new URL(server.workspace_url).origin}/teamclaws-admin/api/shell/`;
+    response = await requestJson(fetcher, url, {
+      ...options,
+      headers: await authorization.headersForAccountShell(
+        "POST",
+        url,
+        server,
+        signal,
+      ),
+    });
   }
-  const url = `${credential.origin}/teamclaws-admin/api/shell/`;
-  const response = await requestTargetJson(
-    fetcher,
-    authorization,
-    url,
-    credential,
-    {
-      method: "POST",
-      textBody: command,
-      timeoutMs: null,
-      responseLimitBytes: null,
-      ...(signal ? { signal } : {}),
-    },
-  );
   if (response.status !== 200)
     throw errorFromResponse(response, "shell_failed");
   const result = response.body;

@@ -16,7 +16,7 @@ import {
   type MachineKeyReference,
 } from "./machine-key.js";
 import type { CredentialStore } from "./storage.js";
-import type { StatusWorkspaceCredential } from "./types.js";
+import type { ServerSummary, StatusWorkspaceCredential } from "./types.js";
 import { isObject } from "./validation.js";
 
 export type DurableAuthorization = {
@@ -158,6 +158,53 @@ export class TargetAuthorization {
         proof,
         pairingAuthorization,
       ),
+    };
+  }
+
+  async headersForAccountShell(
+    method: string,
+    url: string,
+    server: Pick<ServerSummary, "server_id" | "workspace_url">,
+    signal?: AbortSignal,
+  ): Promise<Record<string, string>> {
+    const grant = await this.requireGrant();
+    if (new URL(url).origin !== new URL(server.workspace_url).origin)
+      throw new TeamClawsError(
+        "target_mismatch",
+        "The request target does not match the selected workspace.",
+        { exitCode: 9 },
+      );
+    const exchangeUrl = `${API_V2_BASE}authorizations/${grant.authorization_id}/shell-proofs/`;
+    const exchange = await requestJson(this.fetcher, exchangeUrl, {
+      method: "POST",
+      headers: {
+        DPoP: await this.dpop(grant.machine_key, "POST", exchangeUrl),
+      },
+      body: { server_id: server.server_id, scope: "workspace:shell" },
+      ...(signal ? { signal } : {}),
+    });
+    if (exchange.status < 200 || exchange.status >= 300)
+      throw errorFromResponse(exchange, "target_proof_denied");
+    if (
+      !isObject(exchange.body) ||
+      exchange.body.token_type !== "DPoP" ||
+      exchange.body.scope !== "workspace:shell" ||
+      typeof exchange.body.access_token !== "string" ||
+      exchange.body.access_token.length < 16 ||
+      exchange.body.access_token.length > 8192 ||
+      !Number.isInteger(exchange.body.expires_in) ||
+      (exchange.body.expires_in as number) < 1 ||
+      (exchange.body.expires_in as number) > 300
+    )
+      throw new TeamClawsError(
+        "invalid_response",
+        "TeamClaws returned an invalid shell proof.",
+        { exitCode: 9 },
+      );
+    const proof = exchange.body.access_token;
+    return {
+      Authorization: `DPoP ${proof}`,
+      DPoP: await this.dpop(grant.machine_key, method, url, proof),
     };
   }
 
