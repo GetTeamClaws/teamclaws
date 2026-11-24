@@ -15,6 +15,7 @@ import { Output, type Writable } from "./output.js";
 import { PairingClient } from "./pairing.js";
 import { runProjects, type ProjectRequest } from "./projects.js";
 import { runShell, shellFetch } from "./shell.js";
+import { fileLink } from "./file-link.js";
 import { CredentialStore } from "./storage.js";
 import { TargetAuthorization } from "./target-authorization.js";
 import type {
@@ -228,6 +229,21 @@ export async function run(
     }
     await targetAuthorization.requireGrant();
     switch (parsed.action) {
+      case "file_link": {
+        const result = await fileLink(
+          store,
+          dependencies.fetcher ?? shellFetch,
+          parsePairingTarget(parsed.target),
+          parsed.path,
+          targetAuthorization,
+          broker,
+          signal,
+        );
+        stdout.write(
+          parsed.json ? `${JSON.stringify(result)}\n` : `${result.url}\n`,
+        );
+        return 0;
+      }
       case "projects": {
         const result = await runProjects(
           store,
@@ -468,6 +484,7 @@ type ParsedArguments =
       serverId: string;
       updates: ServerMetadataUpdate;
     }
+  | { action: "file_link"; json: boolean; target: string; path: string }
   | { action: "shell"; json: boolean; target: string; command: string }
   | { action: "help"; json: boolean }
   | { action: "version"; json: boolean }
@@ -502,6 +519,16 @@ type ParsedArguments =
   | { action: "chat_watch"; json: boolean; options: ChatWatchOptions };
 
 export function parseArguments(arguments_: string[]): ParsedArguments {
+  if (arguments_[0] === "files" && arguments_[1] === "link") {
+    const target = requiredPositional(arguments_, 2);
+    const { values, flags } = parseNamedOptions(arguments_.slice(3), {
+      values: ["--path"],
+      booleans: ["--json"],
+    });
+    const path = values["--path"];
+    if (!path) throw usageError();
+    return { action: "file_link", target, path, json: flags.has("--json") };
+  }
   if (arguments_[0] === "projects") {
     const operation = arguments_[1];
     if (
@@ -1145,5 +1172,5 @@ function usageError(): TeamClawsError {
 }
 
 export function helpText(): string {
-  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws projects list <target> [--json]\n  teamclaws projects create <target> --path <directory> [--create-directory] --request-id <uuid> [--json]\n  teamclaws projects rename <target> --project-id <id> [--name <name>] [--path <directory>] --request-id <uuid> [--json]\n  teamclaws projects delete <target> --project-id <id> [--delete-directory] --request-id <uuid> [--json]\n  teamclaws projects hide|show <target> --project-id <id> --request-id <uuid> [--json]\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws users add <target> <email> [--sudo] [--json]\n  teamclaws users remove <target> <email> [--json]\n  teamclaws users list <target> [--json]\n  teamclaws login <email> [--json]\n  teamclaws signup <email> [--json]\n  teamclaws signup verify --code-stdin [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws email accounts [--json]\n  teamclaws email list <server-id> [--json]\n  teamclaws email set <server-id> <google|microsoft> <account-id> --policy <read_only|write_with_approval_read|write_read> [--json]\n  teamclaws email remove <server-id> <google|microsoft> <account-id> [--json]\n  teamclaws bug report --title <text> --body <text> [--json]\n  teamclaws feedback send --title <text> --body <text> [--json]\n  teamclaws git repos [--json]\n  teamclaws git list <server-id> [--json]\n  teamclaws git set <server-id> <repository-id> --issues <none|read|write> --contents <none|read|write> --pull-requests <none|read|write> --workflows <none|write> [--json]\n  teamclaws git remove <server-id> <repository-id> [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
+  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws files link <target> --path <file> [--json]\n  teamclaws projects list <target> [--json]\n  teamclaws projects create <target> --path <directory> [--create-directory] --request-id <uuid> [--json]\n  teamclaws projects rename <target> --project-id <id> [--name <name>] [--path <directory>] --request-id <uuid> [--json]\n  teamclaws projects delete <target> --project-id <id> [--delete-directory] --request-id <uuid> [--json]\n  teamclaws projects hide|show <target> --project-id <id> --request-id <uuid> [--json]\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws users add <target> <email> [--sudo] [--json]\n  teamclaws users remove <target> <email> [--json]\n  teamclaws users list <target> [--json]\n  teamclaws login <email> [--json]\n  teamclaws signup <email> [--json]\n  teamclaws signup verify --code-stdin [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws servers list [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws email accounts [--json]\n  teamclaws email list <server-id> [--json]\n  teamclaws email set <server-id> <google|microsoft> <account-id> --policy <read_only|write_with_approval_read|write_read> [--json]\n  teamclaws email remove <server-id> <google|microsoft> <account-id> [--json]\n  teamclaws bug report --title <text> --body <text> [--json]\n  teamclaws feedback send --title <text> --body <text> [--json]\n  teamclaws git repos [--json]\n  teamclaws git list <server-id> [--json]\n  teamclaws git set <server-id> <repository-id> --issues <none|read|write> --contents <none|read|write> --pull-requests <none|read|write> --workflows <none|write> [--json]\n  teamclaws git remove <server-id> <repository-id> [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
 }
