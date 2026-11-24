@@ -40,10 +40,11 @@ and verification. Projects are visible workspace-wide by default; hiding is pers
 A non-owner superuser cannot delete an owner-created project through this functionality.
 These commands do not change unrelated shell or filesystem access.
 
-For shell-only administration, a valid CLI account login can authorize
-`teamclaws shell` without a saved device pairing. Do not start pairing merely
-to run that command. The project lifecycle and transfer instructions below
-retain their own prerequisites.
+A valid CLI account login can authorize `teamclaws shell` and the dedicated
+`teamclaws projects` lifecycle commands without a saved device pairing. Do not
+start pairing merely to run those commands. Project permissions and request
+receipts remain unchanged. The transfer instructions below retain their own
+prerequisites.
 
 ## Jobs, services, and external systems
 

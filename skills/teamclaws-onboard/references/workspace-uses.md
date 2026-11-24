@@ -14,8 +14,9 @@ account's permissions and the machine's resources, it can hold complete projects
 and execute their workloads. The official CLI can launch commands through the
 workspace shell, place authorized files on the machine, inspect results, and help
 set up applications and services. A linked AI provider is not required for shell
-work. Shell-only commands can use account login without a saved device pairing;
-the CLI checks account access and binds each shell proof to this computer.
+work. Shell and saved-project lifecycle commands can use account login without a
+saved device pairing; the CLI checks account access and binds each request to
+this computer. Existing project permissions and request receipts apply.
 There is no dedicated `teamclaws deploy` or file-transfer command; use the
 paired shell and the project skill's supported transfer and hosting procedures.
 

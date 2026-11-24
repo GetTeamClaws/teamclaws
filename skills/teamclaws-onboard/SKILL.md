@@ -90,9 +90,10 @@ of browser approval. After `login_complete` and exit 0, confirm the account and
 immediately continue to workspace discovery. Denial, expiry, and network failure
 are distinct failures; report the actual result without claiming success.
 
-For a shell-only request, discover the selected workspace and run the authorized
-`teamclaws shell` command after login. A saved device pairing is not required;
-do not start the pairing journey for that request.
+For a shell or saved-project lifecycle request, discover the selected workspace
+and run the authorized `teamclaws shell` or `teamclaws projects` command after
+login. A saved device pairing is not required; do not start the pairing journey
+for those commands. Existing project permissions and request receipts apply.
 
 ## Choose workspaces
 

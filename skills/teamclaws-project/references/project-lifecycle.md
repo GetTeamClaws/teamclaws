@@ -1,6 +1,6 @@
 # Project lifecycle commands
 
-Prerequisites: installed matching CLI/server releases, valid account sign-in, verified pairing to the selected workspace, and the user's instruction for the operation. Use a stable workspace ID as `<target>`.
+Prerequisites: installed matching CLI/server releases, valid account sign-in, and the user's instruction for the operation. A saved device pairing is optional; existing pairings retain their authentication path. Use a stable workspace ID as `<target>`.
 
 ```text
 teamclaws projects list <target> --json
@@ -24,4 +24,4 @@ Deletion normally removes only the saved project entry and detaches its chat ref
 
 Require exit code zero and `ok=true`; inspect returned project ID/name/path and directory/record outcome fields. List again for current state: a request retry returns the original receipt, not fresh state. `record_deleted=true` does not mean files were deleted. `directory_exists=true` is expected after record-only removal. Report `partial_failure` and its exact saved/host outcomes accurately and resolve them before claiming completion.
 
-`outcome_unverified` is not success. Retry only the exact request with its original UUID. Missing pairing requires the normal pairing flow; owner-protected, authorization-denied, unsupported-server, and path-collision responses do not authorize credential or database fallbacks. These dedicated operations authenticate through the existing paired target authorization and invoke `/teamclaws-admin/api/projects/`; credentials stay in the CLI's existing storage and request pipeline.
+`outcome_unverified` is not success. Retry only the exact request with its original UUID. Without a saved pairing, the CLI resolves the selected workspace through the account inventory and uses the existing account-shell proof with machine-bound DPoP. Do not start pairing merely for a project operation; owner-protected, authorization-denied, unsupported-server, and path-collision responses do not authorize credential or database fallbacks. These dedicated operations invoke the existing `GET`/`POST /teamclaws-admin/api/projects/` endpoint. This endpoint accepts the existing `workspace:shell` account authority for project lifecycle operations only, with fresh grant, machine, workspace entitlement and roster checks. It does not add account-shell authentication to any other API. The server derives the actor from authentication and applies unchanged project, path, owner and sudo policy. Credentials stay in the CLI's existing storage and request pipeline; no device credential or pairing is fabricated or saved.
