@@ -1,9 +1,9 @@
 ---
 name: teamclaws-onboard
-description: Help a user connect to TeamClaws, choose workspaces to pair, and optionally move and run projects. Use for install-and-connect requests, not status-only questions.
+description: Help a user sign in to TeamClaws, choose a workspace, and get their project, app, or job running there. Use for installation and getting-started requests, not status-only questions.
 ---
 
-# Connect to your TeamClaws workspace
+# Get your project running on TeamClaws
 
 This is the shared conversation workflow for:
 
@@ -32,15 +32,12 @@ user's work and any steps already completed:
 1. For a new account, we'll create it through the CLI and verify the emailed code
    using the agent's authorized inbox access; no browser approval is needed.
    For an ordinary existing account, we'll use browser login if signed out.
-2. Next, you'll choose a workspace, and we'll pair this computer with that server.
-   Pairing completes automatically when TeamClawsDeploy confirms you own the
-   workspace or are a superuser in its access group. Follow browser approval
-   only if the CLI requests it. Pairing gives this computer
-   access to run commands and work with files on the workspace.
-3. Then we'll find the best work to move there and set up a clean environment for
-   it, separate from your laptop. That could be a complete job, an agent, a service
-   that talks to your other servers, or an entire project. We'll choose something
-   useful for you and get it running.
+2. We'll find your workspace and check its state. A new account's automatic
+   free server may still be building; show that progress while preparing the project.
+3. We'll put your project there, set up what it needs, run it, and check the
+   result. If you already asked for a particular app or job, continue with it.
+   Otherwise, suggest useful work based on the conversation and ask what they'd
+   like to move first.
 
 Explain that you'll keep waiting during each browser approval and continue
 automatically afterward; they do not need to send a confirmation in chat. Before
@@ -50,8 +47,8 @@ or add another permission question for an already authorized step. Describe the
 separate server environment accurately; inspect an existing workspace before
 promising it is empty or that a particular isolation mechanism is configured.
 
-Pairing connects this computer to the workspace. It does not add a person as a
-workspace user; user membership is a separate privilege.
+Account login authorizes workspace shell and project commands using the user's
+existing access. Choose the destination by its stable server identifier.
 
 ## Sign in
 
@@ -136,43 +133,37 @@ remembered once per owner and server across devices, including a decline, so
 deliver it when received. Never offer this edit for a shared server whose
 `can_edit_metadata` is false, and never infer ownership from an alias or role.
 
-- `discovery_state: no_workspaces` means the broker confirmed zero workspaces
-  accessible for pairing, including owned workspaces still being prepared.
-  A new account normally starts here. Continue to https://teamclaws.com/pricing/
-  to choose a plan and purchase within the authority already granted. Do not ask
-  again for a supplied plan choice or authorized purchase. Obtain only missing
-  decisions, then resume discovery once the workspace is ready.
-- `not_ready` means workspaces exist but none listed can be paired yet. Explain
-  their state and offer to check again when ready; do not suggest another purchase.
-- `unknown` means the broker did not supply a complete inventory count. An empty
-  list does not prove an empty account. Ask the user to check their workspaces at
-  https://teamclaws.com/app/; only if they confirm they have none, direct them to
-  https://teamclaws.com/pricing/ to purchase. Do not claim inventory support is deployed from local code alone.
-- With one pairing-ready workspace, show its alias and description and ask,
-  “Would you like to pair with **[alias]** now?” Never automatically pair it.
-- With several, list each alias and description and ask, “Would you like to pair
-  with any of these now?” If aliases repeat, distinguish them using their
-  workspace addresses.
+- After signup, immediately list servers so the user can see their automatic
+  free server building. Show its actual state, creation time and returned build
+  estimate. Prepare the app's files and configuration while it builds, then
+  check the list again as work proceeds. Verify readiness through actual state
+  and command results.
+- With one usable workspace, connect it to the user's task: “I can get your
+  project running on **[alias]**. Which project would you like to move?” If the
+  user already selected the project and destination, continue the work.
+- With several workspaces and no destination selected, show their names,
+  descriptions and states and ask which should run the project. Distinguish
+  repeated names with their returned workspace addresses.
+- `not_ready` describes pairing readiness; use the server's actual deployment
+  state and authorized shell results to determine whether the project can run.
+- `discovery_state: no_workspaces` means the broker confirmed zero accessible
+  workspaces, including those being prepared. For a new signup, report that the
+  expected free server is missing and investigate the signup/provisioning
+  result. For an existing account, help the user review their workspaces at
+  https://teamclaws.com/app/ and choose an available provisioning option within
+  their authorization.
+- `unknown` means the broker did not supply a complete inventory count. Check
+  the account's workspaces at https://teamclaws.com/app/ before concluding that
+  a server is missing. Report failed discovery as a failed request.
 
-For each selected workspace, follow [teamclaws-pair](../teamclaws-pair/SKILL.md)
-with its stable identifier. A prior explicit selection already authorizes that
-pairing; do not ask again. Verify existing pairing status before recreating a
-completed pairing. An unreachable workspace is not proof it needs re-pairing.
-Keep the original pairing process and your turn active through browser approval
-as the pairing skill specifies. Preserve remaining selections and continue
-automatically after terminal success; no "I approved" message is needed.
-After each completed pairing, refresh and present the workspace inventory as
-the pairing skill specifies. Continue any remaining explicitly selected pairings
-without asking again. Additional workspaces still require the user's selection.
-
-## Turn the connection into useful work
+## Put the project to work
 
 Read [What a workspace can do](references/workspace-uses.md) before proposing
 uses. A TeamClaws workspace is a server the user and their agents can put to
 work. Learn the range of possibilities, then select the ideas relevant to this
 user instead of reciting the entire reference.
 
-After showing the refreshed workspace list, connect the possibilities to the
+After showing the workspace list, connect the possibilities to the
 user's known projects, tools, goals, and comfort with technical language. Show
 practical enthusiasm through concrete outcomes: a job finishing while they are
 away, a browser-accessible agent continuing work, or their app running at its
@@ -193,7 +184,17 @@ Continue work already authorized by the user without another generic permission
 question. For new work, get their choice before starting it. Follow
 [teamclaws-project](../teamclaws-project/SKILL.md) for jobs, files, services, or
 deployment; use [teamclaws-chat](../teamclaws-chat/SKILL.md) for an authorized
-workspace agent conversation. Ask for a project only if unspecified and a paired
+workspace agent conversation. Ask for a project only if unspecified and a
 destination only if ambiguous. Transfer consent is not publication consent.
 Respect an explicit "pair only", "stop", or decline: do not add inventory,
 suggestions, or more prompts after the requested stopping point.
+
+Use the workspace shell and project skill to transfer the selected files,
+install the required dependencies, configure the app or job, and run it.
+For an app, verify persistence and the intended public or private web address;
+for a job, verify its result or show how to check the running work. Give the
+user the working URL or result and explain where the project lives.
+
+For an explicit request to pair a device, use
+[teamclaws-pair](../teamclaws-pair/SKILL.md). Workspace agent conversations use
+the chat skill's own prerequisites and capability checks.

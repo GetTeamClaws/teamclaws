@@ -1,12 +1,8 @@
 # TeamClaws client
 
-The official TeamClaws command-line client pairs a filesystem-capable computer
-with a TeamClaws workspace and stores the resulting Clawgate credential on that
-computer. The command-line client and its agent skills ship together in this
-package.
-
-Pairing connects this computer to the workspace. It does not add a person as a
-workspace user; user membership is a separate privilege.
+The official TeamClaws command-line client helps users and agents get projects
+running on their cloud workspaces: sign in, choose a server, transfer files,
+configure the project, and run it. The CLI and its agent skills ship together.
 
 ## Requirements
 
@@ -72,11 +68,11 @@ blocks signup; an authoritatively revoked login can be cleared by the normal
 status check. Network failures preserve local state and stop.
 
 Success uses the normal `login_complete` event and saved CLI authorization.
-Then list workspaces. A new account normally needs a workspace: continue to
-https://teamclaws.com/pricing/ and choose and purchase a plan within the authority
-already granted. Ask only for missing decisions or authority. Use the user's
-workspace selection for pairing. The CLI itself does not read email, open a
-browser, buy a workspace, or pair one during signup.
+Immediately list workspaces to show the new account's automatic free server
+building, including its actual state, creation time and build estimate. Prepare
+the project while the server becomes ready, then use account-authorized shell
+and project commands to get it running. The CLI itself does not read email,
+open a browser, buy a workspace, or pair one during signup.
 Do not automatically retry a rejected or uncertain exchange. If the account was
 created but its successful response was lost, browser login is the recovery path.
 
@@ -90,21 +86,20 @@ Older `/tcpair` and `/tcdeploy` instructions are retired; use the bundled skills
 Start with [teamclaws-onboard](skills/teamclaws-onboard/SKILL.md). For a global
 installation, `npm root -g` locates the package root; read
 `teamclaws/skills/teamclaws-onboard/SKILL.md` beneath it. The package contains one
-shared workflow for login, alias-based user-selected pairing (including a single
-workspace), additional pairings, project transfer, and optional public/private
-live hosting. Login and pairing mechanics remain in their respective skills;
+shared workflow for login, workspace selection, project transfer and setup,
+and verified public/private live hosting. Login and explicit device-pairing
+requests have their respective skills;
 [teamclaws-project](skills/teamclaws-project/SKILL.md) covers project work through
 the existing workspace shell. Status-only requests do not start onboarding.
 
 Before any browser authorization, the agent explains the process: sign this
 computer's CLI into the user's TeamClaws account through the browser, choose a
-workspace and pair with that server, then choose useful
-work and set up its environment on the server. It explains the purpose and access
+workspace, and get the user's project running on the server. It explains the purpose and access
 of each approval before presenting a link, adapting to steps already completed.
 The conversation starts with that context rather than an unexplained request to
 click an authorization link.
 
-Pairing completes automatically when TeamClawsDeploy confirms the account owns
+For a device-pairing request, pairing completes automatically when TeamClawsDeploy confirms the account owns
 the workspace or is a superuser in its access group. Browser approval is shown
 only when the target reports that approval is pending.
 
@@ -115,7 +110,7 @@ environment that must yield needs a supported completion callback or automatic
 wakeup that preserves the process; a saved skill alone cannot supply that
 runtime capability.
 
-After verified pairing, the agent refreshes `teamclaws servers list --json` and
+After verified login, the agent runs `teamclaws servers list --json` and
 presents each workspace's name, description, and readiness in a Markdown list or
 code block, or plain text with one option per line. It then suggests concrete
 uses tied to the user's work and continues an already authorized task. An

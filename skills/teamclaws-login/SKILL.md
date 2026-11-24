@@ -31,12 +31,12 @@ blocks signup. Its normal status check may clear an authoritatively revoked
 login, but preserves state and stops on network errors. Do not automatically
 retry failed or unconfirmed signup. If an account was created and the successful
 exchange response was lost, use the existing browser-login path for recovery.
-After `login_complete` and exit zero, continue normal discovery. A new account
-normally needs a workspace: continue to https://teamclaws.com/pricing/ and choose
-and purchase a plan within the authority already granted. Obtain only missing
-plan or purchase decisions; do not repeat authorization questions. Signup itself
-does not buy or pair a workspace. Use an existing workspace selection, or ask
-which workspace to use if none was supplied.
+After `login_complete` and exit zero, immediately run `teamclaws servers list
+--json`. A new account's automatic free server should appear while it builds;
+show its actual state, creation time and build estimate. Continue preparing the
+user's project while it becomes ready. Use the selected workspace, or ask which
+workspace should run the project when the destination is ambiguous. Follow the
+onboarding skill if the expected server is missing.
 
 ## Existing account browser login
 
@@ -46,9 +46,8 @@ A status-only request runs only `teamclaws auth status --json` and stops.
 
 Before starting browser login, explain that the user will sign this computer's
 TeamClaws command-line client into their TeamClaws account through the browser.
-This connects the client to their account; workspace selection and pairing come
-next when they are connecting a workspace. Pairing may complete automatically;
-show browser approval only if the CLI requests it. If onboarding
+This connects the client to their account so the agent can find their workspace
+and get their project running. If onboarding
 already explained the process, use a short transition into this step. Give the
 approval link with that context, never as an unexplained authorization request.
 
@@ -76,7 +75,7 @@ handle. Do not require an "I approved" or "done" message. If the execution
 environment requires yielding, use a supported automatic completion callback or
 wakeup that preserves the process; report a limitation if neither is possible.
 Confirm the returned account after `login_complete` and exit 0, then immediately
-resume the authorized onboarding or pairing task. Denial, expiry, cancellation,
+resume the user's selected task. Denial, expiry, cancellation,
 and failure end the attempt; report the result without automatically restarting.
 An email address is required. If the user has not provided their TeamClaws email,
 ask for it and wait for their answer before starting login. Do not guess it from
