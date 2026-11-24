@@ -94,7 +94,7 @@ shared workflow for login, alias-based user-selected pairing (including a single
 workspace), additional pairings, project transfer, and optional public/private
 live hosting. Login and pairing mechanics remain in their respective skills;
 [teamclaws-project](skills/teamclaws-project/SKILL.md) covers project work through
-the existing paired shell. Status-only requests do not start onboarding.
+the existing workspace shell. Status-only requests do not start onboarding.
 
 Before any browser authorization, the agent explains the process: sign this
 computer's CLI into the user's TeamClaws account through the browser, choose a

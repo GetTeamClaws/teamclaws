@@ -18,7 +18,7 @@ work. Shell and saved-project lifecycle commands can use account login without a
 saved device pairing; the CLI checks account access and binds each request to
 this computer. Existing project permissions and request receipts apply.
 There is no dedicated `teamclaws deploy` or file-transfer command; use the
-paired shell and the project skill's supported transfer and hosting procedures.
+workspace shell and the project skill's supported transfer and hosting procedures.
 
 Think of it as a workshop the user and their agents can reach from different
 places. A user who prefers concrete examples may find "a computer that can keep
