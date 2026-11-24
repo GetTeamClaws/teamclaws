@@ -589,3 +589,16 @@ repeat the remote mutation. Existing login and pairing credentials are unchanged
 ## Shared project lifecycle
 
 Use `teamclaws projects list|create|rename|delete|hide|show <target>` to manage saved projects and host directories with account login, without requiring a saved device pairing. Existing paired connections keep their authentication path. Projects are shared by default; hiding is personal. Mutations require `--request-id <uuid>`. Deletion keeps files unless `--delete-directory` is explicitly supplied, and always preserves conversations. Superusers cannot delete owner-created projects through these operations. See the [project lifecycle contract](skills/teamclaws-project/references/project-lifecycle.md) for complete arguments, permissions, receipts and recovery.
+
+## File review links
+
+Use [teamclaws-file-link](skills/teamclaws-file-link/SKILL.md) to show an existing
+workspace file in the authenticated browser Files viewer:
+
+```sh
+teamclaws files link <workspace-id-or-url> --path handoffs/report.md --json
+```
+
+The command checks file readability through existing CLI shell access and returns
+an encoded URL. No pairing, chat creation or agent launch is performed. Browser
+sign-in, viewer permission and rendering are still checked when the link opens.

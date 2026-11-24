@@ -240,3 +240,9 @@ anonymous request, a signed-in user without permission, and an authorized user;
 only the authorized user may access it. Public verification confirms no TeamClaws
 login requirement. Give the usable web address after verification and offer to
 handle another project when appropriate. Report incomplete checks as incomplete.
+
+## Show a file in the browser
+
+For a handoff, report or other existing file the user wants to open, use
+[teamclaws-file-link](../teamclaws-file-link/SKILL.md). Its CLI command validates
+file readability and constructs the encoded viewer URL; do not assemble it yourself.
