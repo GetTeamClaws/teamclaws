@@ -432,18 +432,18 @@ to a specific request, so neither command checks for later conversation turns.
 
 ## Host shell commands
 
-For authorized workspace administration, first check pairing status with
-`teamclaws pair status <target> --json`. If `not_paired`, complete CLI login and pairing
-for that workspace before using the shell, following browser approval only when
-requested by the CLI. A linked AI provider or
-TCChat conversation is not required for paired-shell access; remote chat is a
-separate operation.
+For authorized workspace administration, sign in with `teamclaws login <email>`
+and select a workspace through `teamclaws servers list --json`. Shell access
+does not require a saved device pairing, linked AI provider, or TCChat conversation.
+TeamClaws checks the signed-in account's workspace access for each shell proof.
 
-`teamclaws shell <target> --command <text> [--json]` uses an existing saved
-pairing to execute the exact command text on the workspace host. Quote the
+`teamclaws shell <target> --command <text> [--json]` executes the exact command
+text on the workspace host. An existing saved pairing keeps its current
+authentication path. Without one, the CLI resolves the exact stable identifier
+or canonical workspace address through account discovery and obtains a
+machine-bound shell proof. It saves neither the proof nor a pairing. Quote the
 command as one local shell argument; quotes, pipes and newlines inside that
-argument are preserved. Each request starts in the executing account's home
-directory. The command does not log in, pair, or load chat capabilities.
+argument are preserved. Use `pwd` in the command to inspect the workspace working directory. The command does not log in, pair, or load chat capabilities.
 
 Normal mode forwards stdout and stderr without adding text. JSON mode emits one
 object with `stdout`, `stderr`, and `exit_code`. Both modes return the remote

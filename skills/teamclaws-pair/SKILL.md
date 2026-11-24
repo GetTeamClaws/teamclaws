@@ -139,21 +139,17 @@ still stops at its status result.
 
 ## Authorized workspace administration
 
-When the user asks for work on a selected workspace, check its pairing status
-before assuming that a linked AI provider or TCChat conversation is needed:
-
-```text
-teamclaws pair status <stable-server-identifier-or-canonical-workspace-address> --json
-```
-
-If it reports `not_paired`, follow the login and pairing flow above for that
-selected workspace; follow browser approval only if `pairing_browser_required` is emitted. Do not use
-another workspace's pairing or bypass approval. After `paired` is verified,
-authorized host commands can use the existing paired shell:
+For authorized host shell work on a selected workspace, use:
 
 ```text
 teamclaws shell <target> --command <one-quoted-command-argument> --json
 ```
+
+A valid CLI login is required. Without a saved device pairing, the CLI discovers
+the selected workspace and requests an account-authorized, machine-bound shell
+proof. Do not start pairing merely to run a shell command. Existing saved
+pairings retain their current authentication path. Shell authorization does not
+add a workspace user or create a device pairing.
 
 Check the shell result's `exit_code` and verify the requested outcome. Do not
 retry a command automatically after an uncertain transport failure. Device

@@ -249,6 +249,7 @@ export async function run(
           parsePairingTarget(parsed.target),
           parsed.command,
           targetAuthorization,
+          broker,
           signal,
         );
         if (parsed.json) stdout.write(`${JSON.stringify(result)}\n`);

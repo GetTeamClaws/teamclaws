@@ -52,6 +52,9 @@ show browser approval only if the CLI requests it. If onboarding
 already explained the process, use a short transition into this step. Give the
 approval link with that context, never as an unexplained authorization request.
 
+After login, authorized shell commands can run on a selected workspace without
+a saved device pairing. Do not start pairing for a shell-only request.
+
 Pairing connects this computer to the workspace. It does not add a person as a
 workspace user; user membership is a separate privilege.
 
