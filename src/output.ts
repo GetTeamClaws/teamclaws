@@ -1,4 +1,5 @@
 import type { ConversationReference } from "./storage.js";
+import type { UpgradeResult } from "./clawgate-upgrade.js";
 import { OUTPUT_SCHEMA_VERSION } from "./constants.js";
 import type { TeamClawsError } from "./errors.js";
 import type {
@@ -286,6 +287,39 @@ export class Output {
     });
     if (!this.json)
       this.stdout.write(`Updated server details for ${server.alias}.\n`);
+  }
+
+  clawgateUpgrade(result: UpgradeResult): void {
+    this.event({
+      schema_version: OUTPUT_SCHEMA_VERSION,
+      event: "clawgate_upgrade",
+      ...result,
+    });
+    if (this.json) return;
+    const labels: Record<UpgradeResult["outcome"], string> = {
+      accepted: "ClawGate upgrade accepted.",
+      running: "ClawGate upgrade is running.",
+      ready: "ClawGate is ready.",
+      readiness_unverified:
+        "ClawGate upgrade succeeded. Workspace readiness could not be verified.",
+      failed: "ClawGate upgrade failed.",
+      rolled_back: "ClawGate upgrade failed and rolled back.",
+      temporarily_unreachable: "ClawGate is temporarily unreachable.",
+      unavailable: "ClawGate upgrade status is unavailable.",
+      rejected: "The ClawGate upgrade request was rejected.",
+      unknown: "ClawGate upgrade outcome is unknown.",
+      interrupted: "Stopped following the ClawGate upgrade.",
+    };
+    const lines = [labels[result.outcome]];
+    if (result.run_id) lines.push(`Run: ${result.run_id}`);
+    if (result.run?.phase) lines.push(`Phase: ${result.run.phase}`);
+    if (result.run?.release_version)
+      lines.push(`Release: ${result.run.release_version}`);
+    if (result.run?.detail) lines.push(result.run.detail);
+    if (result.error) lines.push(result.error.message);
+    lines.push(`Workspace: ${result.workspace_url}`);
+    lines.push(`Check status: ${result.status_command}`);
+    this.stdout.write(`${lines.join("\n")}\n`);
   }
 
   pairingComplete(

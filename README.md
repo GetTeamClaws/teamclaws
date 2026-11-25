@@ -236,12 +236,22 @@ a crash after that claim may consume it before it is displayed.
 
 ## Commands
 
+`teamclaws servers upgrade <target>` starts an available ClawGate upgrade
+and follows its progress through restart. The target is a paired workspace ID or
+canonical HTTPS address, and the paired identity must be a workspace superuser.
+Pass `--no-wait` to return after acceptance. Use
+`teamclaws servers upgrade status <target> [--run-id <id>]` to check progress,
+including after interrupting the original command. Both commands support
+`--json` and return the workspace address and the command to check status again.
+
 ```text
 npx teamclaws login <email>
 npx teamclaws auth status
 npx teamclaws logout
 npx teamclaws logout --revoke
 npx teamclaws servers list
+npx teamclaws servers upgrade <target> [--no-wait]
+npx teamclaws servers upgrade status <target> [--run-id <id>]
 npx teamclaws pair status <server-identifier-or-canonical-workspace-address>
 npx teamclaws pair
 npx teamclaws pair <server-identifier-or-canonical-workspace-address> [--no-open]

@@ -133,6 +133,14 @@ remembered once per owner and server across devices, including a decline, so
 deliver it when received. Never offer this edit for a shared server whose
 `can_edit_metadata` is false, and never infer ownership from an alias or role.
 
+When the user requests a ClawGate upgrade, run
+`teamclaws servers upgrade <target> --json` for their paired workspace. It
+requires a workspace superuser and follows the accepted run through restart.
+Use `--no-wait` only when the user wants acceptance without waiting. To check
+progress or recover after interruption, run the returned status command with
+`--json`. Report Ready only for the `ready` outcome. If the start outcome is
+unknown, check that same run before considering any new upgrade request.
+
 - After signup, immediately list servers so the user can see their automatic
   free server building. Show its actual state, creation time and returned build
   estimate. Prepare the app's files and configuration while it builds, then
