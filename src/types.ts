@@ -65,6 +65,9 @@ export type ServerSummary = {
   created_at?: string;
   deployment_status?: string | null;
   pairing_ready: boolean;
+  version?: string | null;
+  available_version?: string | null;
+  update_available?: boolean | null;
 };
 
 export type ServerMetadataUpdate = { alias?: string; description?: string };

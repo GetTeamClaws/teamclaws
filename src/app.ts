@@ -286,7 +286,7 @@ export async function run(
           dependencies.io,
           signal,
         );
-        output.servers(inventory.servers, inventory.workspace_count);
+        output.servers(inventory.servers, inventory.workspace_count, true);
         return 0;
       }
       case "servers_update": {
