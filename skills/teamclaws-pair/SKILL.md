@@ -44,6 +44,8 @@ teamclaws pair status <stable-workspace-id-or-https-url> --json
 ```
 
 Read the terminal `pairing_status` or authentication `error` event, answer immediately, and stop.
+Use `workspace.workspace_name` for the workspace label. The legacy `display_name`
+identifies the device.
 The status command performs at most one bounded direct credential verification.
 Never invoke `teamclaws pair`, fetch a target skill or helper, discover chat
 capabilities, create a TCChat, or start polling in response to a status-only

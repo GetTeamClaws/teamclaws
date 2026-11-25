@@ -400,7 +400,7 @@ export async function run(
           : parsePairingTarget(parsed.target!);
         const pending = await broker.startPairing(target, signal);
         let workspaceName = selected?.alias;
-        if (!workspaceName && !parsed.json) {
+        if (!workspaceName) {
           try {
             const inventory = await broker.servers(signal);
             workspaceName = inventory.servers.find(
@@ -822,7 +822,12 @@ export function parseArguments(arguments_: string[]): ParsedArguments {
     return { action: "servers_update", serverId, updates, json };
   }
   if (arguments_[0] === "shell") {
-    const target = requiredPositional(arguments_, 1);
+    const target = arguments_[1];
+    if (!target || target.startsWith("-")) {
+      throw usageError(
+        "Missing required workspace target. Use a workspace ID or the full HTTPS workspace URL.",
+      );
+    }
     let command: string | undefined;
     let json = false;
     for (let index = 2; index < arguments_.length; index += 1) {

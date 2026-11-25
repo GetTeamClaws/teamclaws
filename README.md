@@ -298,6 +298,10 @@ a short-lived target proof for that bound pairing, performs at most one direct
 workspace verification with a five-second timeout, reports the result, and
 stops. It never starts pairing or loads external-chat resources.
 
+In status JSON, `workspace.workspace_name` is the alias captured at pairing, or
+the canonical workspace URL if no alias was saved. `workspace.display_name`
+continues to identify the paired device. Older credentials still work.
+
 Legacy saved pairings for other workspaces do not require the selected workspace
 to be paired again.
 

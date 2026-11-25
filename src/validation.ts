@@ -836,7 +836,7 @@ export function parseWorkspaceCredential(value: unknown): WorkspaceCredential {
       "machine_jkt",
       "created_at",
     ],
-    [],
+    ["workspace_name"],
     "workspace credential file",
   );
   if (value.version !== 2) throw invalidCredentialFile();
@@ -845,6 +845,11 @@ export function parseWorkspaceCredential(value: unknown): WorkspaceCredential {
     server_id: normalizeUuid(value.server_id),
     origin: canonicalWorkspaceOrigin(value.origin),
     display_name: requireString(value.display_name, "display name", 120),
+    ...(typeof value.workspace_name === "string" &&
+    value.workspace_name.trim() &&
+    value.workspace_name.length <= 200
+      ? { workspace_name: value.workspace_name }
+      : {}),
     device_id: normalizeUuid(value.device_id, "device identifier"),
     pairing_id: normalizeUuid(value.pairing_id, "pairing identifier"),
     device_token: requireSecret(value.device_token),
@@ -876,6 +881,11 @@ export function parseStatusWorkspaceCredential(
       typeof value.display_name === "string" && value.display_name.length > 0
         ? requireString(value.display_name, "display name", 120)
         : "Paired device",
+    ...(typeof value.workspace_name === "string" &&
+    value.workspace_name.trim() &&
+    value.workspace_name.length <= 200
+      ? { workspace_name: value.workspace_name }
+      : {}),
     device_id: normalizeUuid(value.device_id, "device identifier"),
     pairing_id: normalizeUuid(value.pairing_id, "pairing identifier"),
     device_token: requireSecret(value.device_token),

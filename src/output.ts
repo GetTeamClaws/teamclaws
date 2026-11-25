@@ -387,7 +387,7 @@ export class Output {
     status: PairingStatus,
     workspace?: Pick<
       WorkspaceCredential,
-      "server_id" | "origin" | "display_name"
+      "server_id" | "origin" | "display_name" | "workspace_name"
     >,
   ): void {
     const event: Record<string, unknown> = {

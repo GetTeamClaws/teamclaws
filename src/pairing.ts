@@ -87,6 +87,7 @@ export class PairingClient {
       server_id: credential.server_id,
       origin: credential.origin,
       display_name: credential.display_name,
+      workspace_name: credential.workspace_name ?? credential.origin,
     };
     try {
       const url = `${credential.origin}/teamclaws-admin/api/device-pairings/me/`;
@@ -153,6 +154,7 @@ export class PairingClient {
         server_id: pending.server_id,
         origin: pending.target.origin,
         display_name: deviceName,
+        ...(workspaceName ? { workspace_name: workspaceName } : {}),
         device_id: credential.device_id,
         pairing_id: credential.pairing_id,
         device_token: credential.device_token,

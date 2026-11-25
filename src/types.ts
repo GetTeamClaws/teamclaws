@@ -193,6 +193,7 @@ export type WorkspaceCredential = {
   server_id: string;
   origin: string;
   display_name: string;
+  workspace_name?: string;
   device_id: string;
   pairing_id: string;
   device_token: string;
@@ -208,6 +209,7 @@ export type StatusWorkspaceCredential = Pick<
   | "server_id"
   | "origin"
   | "display_name"
+  | "workspace_name"
   | "device_id"
   | "device_token"
   | "pairing_id"
