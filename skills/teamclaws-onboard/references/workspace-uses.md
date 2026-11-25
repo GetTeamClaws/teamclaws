@@ -6,10 +6,10 @@ projects to turn these capabilities into specific ideas. Describe the outcome
 first, then explain the setup it needs. Be descriptive when the user wants to
 explore; keep a getting-started message focused on a few relevant ideas.
 
-## A server for the user's work
+## A workspace for the user's work
 
 A TeamClaws workspace provides a VPS: a virtual private server with its own
-server environment, storage, installed tools, and running processes. Within the
+workspace environment, storage, installed tools, and running processes. Within the
 account's permissions and the machine's resources, it can hold complete projects
 and execute their workloads. The official CLI can launch commands through the
 workspace shell, place authorized files on the machine, inspect results, and help

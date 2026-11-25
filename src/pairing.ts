@@ -134,6 +134,7 @@ export class PairingClient {
     deviceName: string,
     noOpen: boolean,
     signal?: AbortSignal,
+    workspaceName?: string,
   ): Promise<void> {
     let credential: PairingCredential | undefined;
     try {
@@ -196,6 +197,7 @@ export class PairingClient {
         verification.external_chat_handoff,
         snapshot,
         generatedAt,
+        workspaceName,
       );
     } catch (error) {
       if (signal?.aborted) {

@@ -110,7 +110,7 @@ environment that must yield needs a supported completion callback or automatic
 wakeup that preserves the process; a saved skill alone cannot supply that
 runtime capability.
 
-After verified login, the agent runs `teamclaws servers list --json` and
+After verified login, the agent runs `teamclaws workspaces list --json` and
 presents each workspace's name, description, and readiness in a Markdown list or
 code block, or plain text with one option per line. It then suggests concrete
 uses tied to the user's work and continues an already authorized task. An
@@ -162,10 +162,10 @@ request. Test a required-yield environment separately if automatic wakeup is
 used. Local CLI tests establish process behavior, not automatic loading or
 compliance in every agent environment.
 
-`servers list` requests `GET /api/cli/v1/servers/?include_inventory=1&include_description=1&include_editable_metadata=1&include_subscription=1&include_resources=1`. Updated
+`workspaces list` requests `GET /api/cli/v1/servers/?include_inventory=1&include_description=1&include_editable_metadata=1&include_subscription=1&include_resources=1`. Updated
 brokers return `servers` and `workspace_count`: the count of all non-deleted
 owned and eligible shared workspaces, including those without a hostname yet.
-Individual server entries retain aliases, stable IDs, status and `pairing_ready`.
+Individual workspace entries retain aliases, stable IDs, status and `pairing_ready`.
 Updated brokers include `workspace_state` and `status_since`. The state is
 `building`, `running`, `powered_off`, or `error` when established. Unknown
 values are `null`. The timestamp, when available, records the start of that
@@ -189,7 +189,7 @@ Subscription inventory (2026-11-04) adds optional `tier_name`, `is_free`, and
 free expiration deadline, as applicable. The CLI displays the tier and free
 deadline and starts warning seven days before free access expires, including
 an expired warning at or after the deadline. JSON `servers_list` events include
-the subscription fields and a `warnings` array with server ID, warning code,
+the subscription fields and a `warnings` array with workspace ID, warning code,
 deadline, and message. Warnings are evaluated when inventory is displayed;
 there is no background polling.
 
@@ -216,22 +216,22 @@ use and wait for their choice before renaming. A customized display name is kept
 even when its hostname still follows that pattern. Combine this suggestion with
 any metadata prompt already being shown rather than asking twice.
 
-Owners can edit their server's user-defined name and description:
+Owners can edit their workspace's user-defined name and description:
 
 ```text
-teamclaws servers update <server-id> --name "My server" --description "What this server is for"
+teamclaws workspaces update <workspace-id> --name "My workspace" --description "What this workspace is for"
 ```
 
 Provide either flag or both. Omitted fields stay unchanged; an empty string
-clears a field. The name updates the server alias, preserving its system name
+clears a field. The name updates the workspace alias, preserving its system name
 and workspace address. Names are limited to 100 characters and new descriptions
 to 2000. The API enforces ownership; shared access, staff, and superuser roles
-do not grant editing rights to someone else's server.
+do not grant editing rights to someone else's workspace.
 
-When `servers list` or targetless pairing first discovers an owned server with
+When `workspaces list` or targetless pairing first discovers an owned workspace with
 no user-defined name or description, the CLI asks once whether to set them and
 explains the command to edit them later. This prompt is remembered per owner and
-server across devices, including a decline. In `--json` mode, the CLI emits a
+workspace across devices, including a decline. In `--json` mode, the CLI emits a
 `server_metadata_prompt` event for the agent to show the user, followed by the
 normal result. Agents must ask the question and wait for the user's answer
 before running the edit command. Plain-text commands without an interactive
@@ -240,11 +240,14 @@ a crash after that claim may consume it before it is displayed.
 
 ## Commands
 
-`teamclaws servers upgrade <target>` starts an available ClawGate upgrade
+Use `teamclaws workspaces`. The deprecated `teamclaws servers` alias still works.
+Copy the workspace ID or full HTTPS URL from `teamclaws workspaces list` to use as a shell target.
+
+`teamclaws workspaces upgrade <target>` starts an available ClawGate upgrade
 and follows its progress through restart. The target is a paired workspace ID or
 canonical HTTPS address, and the paired identity must be a workspace superuser.
 Pass `--no-wait` to return after acceptance. Use
-`teamclaws servers upgrade status <target> [--run-id <id>]` to check progress,
+`teamclaws workspaces upgrade status <target> [--run-id <id>]` to check progress,
 including after interrupting the original command. Both commands support
 `--json` and return the workspace address and the command to check status again.
 
@@ -253,12 +256,12 @@ npx teamclaws login <email>
 npx teamclaws auth status
 npx teamclaws logout
 npx teamclaws logout --revoke
-npx teamclaws servers list
-npx teamclaws servers upgrade <target> [--no-wait]
-npx teamclaws servers upgrade status <target> [--run-id <id>]
-npx teamclaws pair status <server-identifier-or-canonical-workspace-address>
+npx teamclaws workspaces list
+npx teamclaws workspaces upgrade <target> [--no-wait]
+npx teamclaws workspaces upgrade status <target> [--run-id <id>]
+npx teamclaws pair status <workspace-id-or-https-url>
 npx teamclaws pair
-npx teamclaws pair <server-identifier-or-canonical-workspace-address> [--no-open]
+npx teamclaws pair <workspace-id-or-https-url> [--no-open]
 npx teamclaws shell <target> --command <text> [--json]
 npx teamclaws users add <target> <email> [--sudo] [--json]
 npx teamclaws users remove <target> <email> [--json]
@@ -287,7 +290,7 @@ types, or permission labels. TeamClaws, Clawgate, and host policy determine the
 authority of the approved credential.
 
 The client never accepts a model or harness access token. An agent that already
-discovered a workspace passes only the selected stable server identifier to the
+discovered a workspace passes only the selected stable workspace ID to the
 `pair` command.
 
 `pair status` reads the matching protected local workspace credential, obtains
@@ -325,7 +328,7 @@ acceptance. Existing memberships and pending invitations are preserved without
 promotion or resend. If a request has an uncertain network outcome, inspect the
 invitation status before trying again; the command does not blindly retry it.
 
-The owner can include `--sudo` when inviting a `superuser` to grant full server access after acceptance, covering every workspace server included in the invitation.
+The owner can include `--sudo` when inviting a `superuser` to grant full workspace access after acceptance, covering every workspace server included in the invitation.
 This user and their agents can control those servers and access everything stored on them, including other users' saved passwords, API keys, and connected-account credentials. Only grant this to someone you trust with that access:
 
 ```text
@@ -371,24 +374,24 @@ status determines their current access.
 
 ```sh
 teamclaws email accounts
-teamclaws email list <server-id>
-teamclaws email set <server-id> google <account-id> --policy read_only
-teamclaws email set <server-id> microsoft <account-id> --policy write_with_approval_read
-teamclaws email remove <server-id> google <account-id>
+teamclaws email list <workspace-id>
+teamclaws email set <workspace-id> google <account-id> --policy read_only
+teamclaws email set <workspace-id> microsoft <account-id> --policy write_with_approval_read
+teamclaws email remove <workspace-id> google <account-id>
 ```
 
-Owners can assign or remove their connected Google and Microsoft accounts on their servers. Find IDs with `servers list` and `email accounts`. Connect a missing account at [Connected Email](https://www.teamclaws.com/app/connected-email/).
+Owners can assign or remove their connected Google and Microsoft accounts on their workspaces. Find IDs with `workspaces list` and `email accounts`. Connect a missing account at [Connected Email](https://www.teamclaws.com/app/connected-email/).
 
 Choose `read_only`, `write_with_approval_read`, or `write_read`. The command prints the effective saved policy. Read-only account credentials restrict the saved policy to `read_only`. Removal also succeeds when the account is already unassigned. Check `email list` after an uncertain mutation before retrying.
 
-`servers list` shows assigned email and X accounts. Each assigned X account appears by its handle. These email commands and the commands below support `--json`.
+`workspaces list` shows assigned email and X accounts. Each assigned X account appears by its handle. These email commands and the commands below support `--json`.
 
 ## Submit a bug report or feedback
 
-`teamclaws servers list` shows each server's workspace state and any recorded
+`teamclaws workspaces list` shows each workspace's state and any recorded
 state transition time. Run the list again to check workspace readiness. Older
 brokers provide the legacy status and creation timestamp.
-If a build seems stuck, include its server ID and creation time in a bug report.
+If a build seems stuck, include its workspace ID and creation time in a bug report.
 
 ```sh
 teamclaws bug report --title "Short summary" --body "What happened and how to reproduce it"
@@ -403,14 +406,14 @@ These commands manage server access to repositories you have already connected t
 
 ```sh
 teamclaws git repos
-teamclaws git list <server-id>
-teamclaws git set <server-id> <repository-id> --issues read --contents write --pull-requests read --workflows none
-teamclaws git remove <server-id> <repository-id>
+teamclaws git list <workspace-id>
+teamclaws git set <workspace-id> <repository-id> --issues read --contents write --pull-requests read --workflows none
+teamclaws git remove <workspace-id> <repository-id>
 ```
 
-Use `teamclaws servers list` to find the server ID and `teamclaws git repos` to find the repository ID. If you have no connected repositories or cannot find the repository you need, add it at [Connected GitHub](https://www.teamclaws.com/app/connected-github/).
+Use `teamclaws workspaces list` to find the workspace ID and `teamclaws git repos` to find the repository ID. If you have no connected repositories or cannot find the repository you need, add it at [Connected GitHub](https://www.teamclaws.com/app/connected-github/).
 
-Server owners can list, set, and remove permissions for their servers. `git set` requires all four flags. Issues, contents, and pull requests accept `none`, `read`, or `write`. Workflows accepts `none` or `write`. Setting all four to `none` removes the assignment. `git remove` also succeeds when the repository is already unassigned.
+Server owners can list, set, and remove permissions for their workspaces. `git set` requires all four flags. Issues, contents, and pull requests accept `none`, `read`, or `write`. Workflows accepts `none` or `write`. Setting all four to `none` removes the assignment. `git remove` also succeeds when the repository is already unassigned.
 
 Each command supports `--json`. If a mutation returns an uncertain result, run `git list` to check the saved permissions before retrying.
 
@@ -441,7 +444,7 @@ to a specific request, so neither command checks for later conversation turns.
 ## Host shell commands
 
 For authorized workspace administration, sign in with `teamclaws login <email>`
-and select a workspace through `teamclaws servers list --json`. Shell access
+and select a workspace through `teamclaws workspaces list --json`. Shell access
 does not require a saved device pairing, linked AI provider, or TCChat conversation.
 TeamClaws checks the signed-in account's workspace access for each shell proof.
 
@@ -459,7 +462,7 @@ process exit code. HTTP/authentication/transport errors use the existing CLI
 error output and failure codes.
 For a workspace still building, the account proof service can return
 `workspace_building` before the command is sent. Check the workspace's state
-with `teamclaws servers list` before trying again.
+with `teamclaws workspaces list` before trying again.
 
 The client sends one POST to `/teamclaws-admin/api/shell/` with
 `Content-Type: text/plain; charset=utf-8`, never follows redirects, and never
@@ -472,7 +475,7 @@ execution outcome unknown; inspect the host before deciding to run it again.
 The CLI stores the approved authorization ID, account ID, and public key
 reference in its private user directory. The private signing key remains in
 Windows CNG or, on Linux and macOS, a separate protected PKCS#8 key file.
-Completed workspace credentials are stored by stable server identifier beneath
+Completed workspace credentials are stored by stable workspace ID beneath
 `~/.teamclaws/clawgate-devices/<server-uuid>.json`. Writes are atomic. Unix
 directories use mode `0700` and files use mode `0600`; Windows uses
 inheritance-disabled access-control entries limited to the current user and the

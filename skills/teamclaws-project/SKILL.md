@@ -3,7 +3,7 @@ name: teamclaws-project
 description: Get a project, app, or job running on a TeamClaws workspace, or transfer and retrieve its authorized files through the CLI.
 ---
 
-# Put work on a TeamClaws server
+# Put work on a TeamClaws workspace
 
 Use the conversation sequence in [teamclaws-onboard](../teamclaws-onboard/SKILL.md).
 Ask for the project if missing and the destination workspace if ambiguous. Inspect
@@ -23,11 +23,11 @@ access, and account permissions through the workspace shell before choosing a se
 Pairing connects this computer to the workspace. It does not add a person as a
 workspace user; user membership is a separate privilege.
 
-Full server access is optional and separate from the Admin role.
+Full workspace access is optional and separate from the Admin role.
 For agents, this grants sudo/root-equivalent access; keep this capability available.
 Use `teamclaws users add <target> <email> --sudo --json` only when the owner explicitly authorizes that grant; Admin alone does not authorize it.
-When the owner is choosing, explain: "This user and their agents can control every workspace server covered by this invitation and access everything stored on them, including other users' saved passwords, API keys, and connected-account credentials. Only grant this to someone you trust with that access."
-Offer "Grant full server access" or "Keep standard Admin access"; omit `--sudo` for standard Admin access.
+When the owner is choosing, explain: "This user and their agents can control every workspace covered by this invitation and access everything stored on them, including other users' saved passwords, API keys, and connected-account credentials. Only grant this to someone you trust with that access."
+Offer "Grant full workspace access" or "Keep standard Admin access"; omit `--sudo` for standard Admin access.
 Use non-technical wording in the user-facing ask; do not say sudo or root unless the user expresses a preference for technical detail.
 Respect an already explicit choice; do not add another confirmation step.
 
@@ -74,12 +74,12 @@ and the workspace's supported sharing controls.
 
 ## Transfer through the existing workspace shell
 
-Prerequisites: valid TeamClaws CLI login, access to the selected stable server
-identifier, and user authorization for the selected project/data. A saved device
+Prerequisites: valid TeamClaws CLI login, access to the selected stable workspace
+ID, and user authorization for the selected project/data. A saved device
 pairing is optional; existing paired connections retain their authentication path. Use:
 
 ```text
-teamclaws shell <server-id> --command <one-quoted-command-argument> --json
+teamclaws shell <workspace-id> --command <one-quoted-command-argument> --json
 ```
 
 This sends the exact command over the authenticated workspace HTTPS shell API.
@@ -99,7 +99,7 @@ their selected directories; do not change the general working directory or move 
 Discover the exact shared path through the existing workspace shell:
 
 ```text
-teamclaws shell <server-id> --command 'printf "%s\n" "$TEAMCLAWS_HANDOFFS_DIR"' --json
+teamclaws shell <workspace-id> --command 'printf "%s\n" "$TEAMCLAWS_HANDOFFS_DIR"' --json
 ```
 
 Use the returned absolute path, not `$HOME`, the starting directory, or a guessed
@@ -119,7 +119,7 @@ the intended recipient can read the actual file through normal authorized access
 The writer's own read does not establish recipient access. If recipient access is
 unverified, report that accurately and continue other authorized work.
 
-### Find a file the user left on the server
+### Find a file the user left in the workspace
 
 When the user names a file without a path, explain where they probably put it
 when working through the CLI, then inspect those locations before asking them

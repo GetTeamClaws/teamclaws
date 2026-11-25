@@ -76,6 +76,16 @@ export async function run(
   const stdout = dependencies.io?.stdout ?? process.stdout;
   const stderr = dependencies.io?.stderr ?? process.stderr;
   const output = new Output(parsed.json, stdout, stderr);
+  if (
+    arguments_[0] === "servers" &&
+    !parsed.json &&
+    (dependencies.io?.interactive ??
+      (process.stdin.isTTY && process.stdout.isTTY))
+  ) {
+    stderr.write(
+      "The servers command is deprecated. Use teamclaws workspaces instead.\n",
+    );
+  }
   if (parsed.action === "help") {
     stdout.write(helpText());
     return 0;
@@ -376,8 +386,8 @@ export async function run(
         );
         return 0;
       case "pair": {
-        const target = parsed.target
-          ? parsePairingTarget(parsed.target)
+        const selected = parsed.target
+          ? undefined
           : await discoverTarget(
               broker,
               parsed.json,
@@ -385,12 +395,31 @@ export async function run(
               dependencies.io,
               signal,
             );
+        const target = selected
+          ? { server_id: selected.server_id }
+          : parsePairingTarget(parsed.target!);
         const pending = await broker.startPairing(target, signal);
+        let workspaceName = selected?.alias;
+        if (!workspaceName && !parsed.json) {
+          try {
+            const inventory = await broker.servers(signal);
+            workspaceName = inventory.servers.find(
+              (workspace) =>
+                workspace.server_id === pending.server_id &&
+                new URL(workspace.workspace_url).origin ===
+                  pending.target.origin,
+            )?.alias;
+          } catch (error) {
+            if (signal?.aborted) throw error;
+            // The workspace URL is sufficient if the optional label is unavailable.
+          }
+        }
         await pairing.complete(
           pending,
           broker.currentDeviceName(),
           parsed.noOpen,
           signal,
+          workspaceName,
         );
         return 0;
       }
@@ -745,7 +774,9 @@ export function parseArguments(arguments_: string[]): ParsedArguments {
       },
     };
   }
-  if (arguments_[0] === "servers" && arguments_[1] === "upgrade") {
+  const workspaceGroup =
+    arguments_[0] === "workspaces" || arguments_[0] === "servers";
+  if (workspaceGroup && arguments_[1] === "upgrade") {
     const status = arguments_[2] === "status";
     const position = status ? 3 : 2;
     const target = parsePairingTarget(requiredPositional(arguments_, position));
@@ -767,7 +798,7 @@ export function parseArguments(arguments_: string[]): ParsedArguments {
         : { kind: "start", noWait: flags.has("--no-wait") },
     };
   }
-  if (arguments_[0] === "servers" && arguments_[1] === "update") {
+  if (workspaceGroup && arguments_[1] === "update") {
     const serverId = normalizeUuid(requiredPositional(arguments_, 2));
     const updates: ServerMetadataUpdate = {};
     let json = false;
@@ -798,11 +829,13 @@ export function parseArguments(arguments_: string[]): ParsedArguments {
       const option = arguments_[index];
       if (option === "--command" && command === undefined) {
         command = arguments_[++index];
-        if (command === undefined || command.length === 0) throw usageError();
+        if (command === undefined || command.length === 0)
+          throw usageError("Provide a value for --command.");
       } else if (option === "--json" && !json) json = true;
       else throw usageError();
     }
-    if (command === undefined) throw usageError();
+    if (command === undefined)
+      throw usageError("Missing required --command <text>.");
     return { action: "shell", target, command, json };
   }
   const json = arguments_.includes("--json");
@@ -862,7 +895,11 @@ export function parseArguments(arguments_: string[]): ParsedArguments {
   if (args[0] === "auth" && args[1] === "status" && args.length === 2) {
     return { action: "auth_status", json };
   }
-  if (args[0] === "servers" && args[1] === "list" && args.length === 2) {
+  if (
+    (args[0] === "workspaces" || args[0] === "servers") &&
+    args[1] === "list" &&
+    args.length === 2
+  ) {
     return { action: "servers_list", json };
   }
   if (args[0] === "pair") {
@@ -1058,7 +1095,7 @@ async function discoverTarget(
   output: Output,
   io: AppIo | undefined,
   signal?: AbortSignal,
-): Promise<PairingTarget> {
+): Promise<ServerSummary> {
   const inventory = await broker.servers(signal);
   await offerServerMetadata(
     inventory.servers,
@@ -1083,7 +1120,7 @@ async function discoverTarget(
   if (json || !interactive) {
     throw new TeamClawsError(
       "server_selection_required",
-      "Choose a workspace by alias from `teamclaws servers list`, then provide its stable server identifier after the user agrees to pair.",
+      "Choose a workspace by alias from `teamclaws workspaces list`, then provide its stable workspace ID after the user agrees to pair.",
       { exitCode: 4 },
     );
   }
@@ -1093,7 +1130,7 @@ async function discoverTarget(
     io?.input ?? process.stdin,
     io?.stdout ?? process.stdout,
   );
-  return { server_id: selected.server_id };
+  return selected;
 }
 
 async function offerServerMetadata(
@@ -1209,16 +1246,14 @@ async function readSignupCode(
   }
 }
 
-function usageError(): TeamClawsError {
-  return new TeamClawsError(
-    "invalid_command",
-    "Run `teamclaws --help` for supported commands.",
-    {
-      exitCode: 2,
-    },
-  );
+function usageError(
+  message = "Run `teamclaws --help` for supported commands.",
+): TeamClawsError {
+  return new TeamClawsError("invalid_command", message, {
+    exitCode: 2,
+  });
 }
 
 export function helpText(): string {
-  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws files link <target> --path <file> [--json]\n  teamclaws projects list <target> [--json]\n  teamclaws projects create <target> --path <directory> [--create-directory] --request-id <uuid> [--json]\n  teamclaws projects rename <target> --project-id <id> [--name <name>] [--path <directory>] --request-id <uuid> [--json]\n  teamclaws projects delete <target> --project-id <id> [--delete-directory] --request-id <uuid> [--json]\n  teamclaws projects hide|show <target> --project-id <id> --request-id <uuid> [--json]\n  teamclaws update [--json]\n  teamclaws shell <target> --command <text> [--json]\n  teamclaws users add <target> <email> [--sudo] [--json]\n  teamclaws users remove <target> <email> [--json]\n  teamclaws users list <target> [--json]\n  teamclaws login <email> [--json]\n  teamclaws signup <email> [--json]\n  teamclaws signup verify --code-stdin [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws servers list [--json]\n  teamclaws servers upgrade <target> [--no-wait] [--json]\n  teamclaws servers upgrade status <target> [--run-id <id>] [--json]\n  teamclaws servers update <server-id> [--name <text>] [--description <text>] [--json]\n  teamclaws email accounts [--json]\n  teamclaws email list <server-id> [--json]\n  teamclaws email set <server-id> <google|microsoft> <account-id> --policy <read_only|write_with_approval_read|write_read> [--json]\n  teamclaws email remove <server-id> <google|microsoft> <account-id> [--json]\n  teamclaws bug report --title <text> --body <text> [--json]\n  teamclaws feedback send --title <text> --body <text> [--json]\n  teamclaws git repos [--json]\n  teamclaws git list <server-id> [--json]\n  teamclaws git set <server-id> <repository-id> --issues <none|read|write> --contents <none|read|write> --pull-requests <none|read|write> --workflows <none|write> [--json]\n  teamclaws git remove <server-id> <repository-id> [--json]\n  teamclaws pair status <server-identifier-or-canonical-workspace-address> [--json]\n  teamclaws pair [server-identifier-or-canonical-workspace-address] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
+  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws files link <target> --path <file> [--json]\n  teamclaws projects list <target> [--json]\n  teamclaws projects create <target> --path <directory> [--create-directory] --request-id <uuid> [--json]\n  teamclaws projects rename <target> --project-id <id> [--name <name>] [--path <directory>] --request-id <uuid> [--json]\n  teamclaws projects delete <target> --project-id <id> [--delete-directory] --request-id <uuid> [--json]\n  teamclaws projects hide|show <target> --project-id <id> --request-id <uuid> [--json]\n  teamclaws update [--json]\n  teamclaws shell <workspace-id-or-https-url> --command <text> [--json]\n  teamclaws users add <target> <email> [--sudo] [--json]\n  teamclaws users remove <target> <email> [--json]\n  teamclaws users list <target> [--json]\n  teamclaws login <email> [--json]\n  teamclaws signup <email> [--json]\n  teamclaws signup verify --code-stdin [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws workspaces list [--json]\n  teamclaws workspaces upgrade <target> [--no-wait] [--json]\n  teamclaws workspaces upgrade status <target> [--run-id <id>] [--json]\n  teamclaws workspaces update <workspace-id> [--name <text>] [--description <text>] [--json]\n  teamclaws email accounts [--json]\n  teamclaws email list <workspace-id> [--json]\n  teamclaws email set <workspace-id> <google|microsoft> <account-id> --policy <read_only|write_with_approval_read|write_read> [--json]\n  teamclaws email remove <workspace-id> <google|microsoft> <account-id> [--json]\n  teamclaws bug report --title <text> --body <text> [--json]\n  teamclaws feedback send --title <text> --body <text> [--json]\n  teamclaws git repos [--json]\n  teamclaws git list <workspace-id> [--json]\n  teamclaws git set <workspace-id> <repository-id> --issues <none|read|write> --contents <none|read|write> --pull-requests <none|read|write> --workflows <none|write> [--json]\n  teamclaws git remove <workspace-id> <repository-id> [--json]\n  teamclaws pair status <workspace-id-or-https-url> [--json]\n  teamclaws pair [workspace-id-or-https-url] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
 }

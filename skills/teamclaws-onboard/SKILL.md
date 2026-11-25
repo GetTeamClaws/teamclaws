@@ -33,7 +33,7 @@ user's work and any steps already completed:
    using the agent's authorized inbox access; no browser approval is needed.
    For an ordinary existing account, we'll use browser login if signed out.
 2. We'll find your workspace and check its state. A new account's automatic
-   free server may still be building; show that progress while preparing the project.
+   free workspace may still be building; show that progress while preparing the project.
 3. We'll put your project there, set up what it needs, run it, and check the
    result. If you already asked for a particular app or job, continue with it.
    Otherwise, suggest useful work based on the conversation and ask what they'd
@@ -44,11 +44,11 @@ automatically afterward; they do not need to send a confirmation in chat. Before
 each approval, explain what it connects and why it is needed, then provide the
 link when available. Do not begin with an unexplained "click this link" request
 or add another permission question for an already authorized step. Describe the
-separate server environment accurately; inspect an existing workspace before
+separate workspace environment accurately; inspect an existing workspace before
 promising it is empty or that a particular isolation mechanism is configured.
 
 Account login authorizes workspace shell and project commands using the user's
-existing access. Choose the destination by its stable server identifier.
+existing access. Choose the destination by its stable workspace ID.
 
 ## Sign in
 
@@ -95,8 +95,8 @@ permissions and request receipts apply.
 
 ## Choose workspaces
 
-Run `teamclaws servers list --json`. Use only a successful `servers_list` event;
-errors are not empty inventories. Show each server's display name (`alias`) and
+Run `teamclaws workspaces list --json`. Use only a successful `servers_list` event;
+errors are not empty inventories. Show each workspace's display name (`alias`) and
 returned `description` to the user, retaining `server_id` for commands. If a
 description is empty or absent, say "No description set." Explain readiness
 separately from ownership.
@@ -120,29 +120,29 @@ a workspace already named "ClawGate 2.0" does not need renaming just because its
 address still starts with `workspace-`. Combine the suggestion with any metadata
 question already being shown, and respect a known decline instead of asking
 again. Wait for the user's acceptance or their own name before running
-`teamclaws servers update <server-id> --name <chosen-name> --json`; omit
+`teamclaws workspaces update <workspace-id> --name <chosen-name> --json`; omit
 `--description` unless they also request a description change. If they already
 supplied the name, carry out that authorized rename without asking again.
 
 If discovery emits `server_metadata_prompt`, show its question and explain that
-the owner can always change the server's name and description later. Ask for the
-desired values if the user wants to edit them; run `teamclaws servers update
-<server-id> --name <text> --description <text> --json` only after their answer.
+the owner can always change the workspace's name and description later. Ask for the
+desired values if the user wants to edit them; run `teamclaws workspaces update
+<workspace-id> --name <text> --description <text> --json` only after their answer.
 Either flag may be omitted to keep that field unchanged. This question is
-remembered once per owner and server across devices, including a decline, so
-deliver it when received. Never offer this edit for a shared server whose
+remembered once per owner and workspace across devices, including a decline, so
+deliver it when received. Never offer this edit for a shared workspace whose
 `can_edit_metadata` is false, and never infer ownership from an alias or role.
 
 When the user requests a ClawGate upgrade, run
-`teamclaws servers upgrade <target> --json` for their paired workspace. It
+`teamclaws workspaces upgrade <target> --json` for their paired workspace. It
 requires a workspace superuser and follows the accepted run through restart.
 Use `--no-wait` only when the user wants acceptance without waiting. To check
 progress or recover after interruption, run the returned status command with
 `--json`. Report Ready only for the `ready` outcome. If the start outcome is
 unknown, check that same run before considering any new upgrade request.
 
-- After signup, immediately list servers so the user can see their automatic
-  free server building. Prefer its workspace state and recorded transition
+- After signup, immediately list workspaces so the user can see their automatic
+  free workspace building. Prefer its workspace state and recorded transition
   time when present. Prepare the app's files and configuration while it builds, then
   check the list again as work proceeds. Verify readiness through actual state
   and command results.
@@ -152,17 +152,17 @@ unknown, check that same run before considering any new upgrade request.
 - With several workspaces and no destination selected, show their names,
   descriptions and states and ask which should run the project. Distinguish
   repeated names with their returned workspace addresses.
-- `not_ready` describes pairing readiness; use the server's actual deployment
+- `not_ready` describes pairing readiness; use the workspace's actual deployment
   state and authorized shell results to determine whether the project can run.
 - `discovery_state: no_workspaces` means the broker confirmed zero accessible
   workspaces, including those being prepared. For a new signup, report that the
-  expected free server is missing and investigate the signup/provisioning
+  expected free workspace is missing and investigate the signup/provisioning
   result. For an existing account, help the user review their workspaces at
   https://teamclaws.com/app/ and choose an available provisioning option within
   their authorization.
 - `unknown` means the broker did not supply a complete inventory count. Check
   the account's workspaces at https://teamclaws.com/app/ before concluding that
-  a server is missing. Report failed discovery as a failed request.
+  a workspace is missing. Report failed discovery as a failed request.
 
 ## Put the project to work
 

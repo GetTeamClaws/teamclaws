@@ -225,7 +225,7 @@ export class Output {
           status = `${server.status} — deployment needs review`;
         }
         this.stdout.write(
-          `${index + 1}. ${server.alias} — ${server.server_id} — ${server.workspace_url} — ${status} — ${server.pairing_ready ? "ready to pair" : "not ready to pair"}\n`,
+          `${index + 1}. ${server.alias} — Workspace ID: ${server.server_id} — ${server.workspace_url} — ${status} — ${server.pairing_ready ? "ready to pair" : "not ready to pair"}\n`,
         );
         if (showClawgateVersion) {
           const { version, available_version, update_available } = server;
@@ -245,12 +245,12 @@ export class Output {
           this.stdout.write(`   Status since: ${server.status_since}\n`);
         if (server.workspace_state === "building")
           this.stdout.write(
-            "   Run teamclaws servers list again to check workspace readiness.\n",
+            "   Run teamclaws workspaces list again to check workspace readiness.\n",
           );
         if (building)
           this.stdout.write(
-            "   Estimated build time: 10 minutes. Run teamclaws servers list again to check readiness.\n" +
-              `   If the build seems stuck: teamclaws bug report --title "Workspace build issue" --body "Server ${server.server_id}; created ${server.created_at ?? "unknown"}; describe what happened."\n`,
+            "   Estimated build time: 10 minutes. Run teamclaws workspaces list again to check readiness.\n" +
+              `   If the build seems stuck: teamclaws bug report --title "Workspace build issue" --body "Workspace ${server.server_id}; created ${server.created_at ?? "unknown"}; describe what happened."\n`,
           );
         if (server.description) this.stdout.write(`   ${server.description}\n`);
         if (server.resources) {
@@ -281,21 +281,21 @@ export class Output {
   }
 
   serverMetadataPrompt(server: ServerSummary): void {
-    const updateCommand = `teamclaws servers update ${server.server_id} --name "Your server name" --description "What this server is for"`;
+    const updateCommand = `teamclaws workspaces update ${server.server_id} --name "Your workspace name" --description "What this workspace is for"`;
     const guidance = `You can always change the name and description later with: ${updateCommand}`;
     const question =
-      "Would you like to set the server name and description now?";
+      "Would you like to set the workspace name and description now?";
     this.event({
       schema_version: OUTPUT_SCHEMA_VERSION,
       event: "server_metadata_prompt",
       server,
       question,
-      message: `Your server ${JSON.stringify(server.alias)} is missing a user-defined name or description. ${question} ${guidance}`,
+      message: `Your workspace ${JSON.stringify(server.alias)} is missing a user-defined name or description. ${question} ${guidance}`,
       update_command: updateCommand,
     });
     if (!this.json)
       this.stdout.write(
-        `Your server ${JSON.stringify(server.alias)} is missing a user-defined name or description.\n${guidance}\n`,
+        `Your workspace ${JSON.stringify(server.alias)} is missing a user-defined name or description.\n${guidance}\n`,
       );
   }
 
@@ -307,7 +307,7 @@ export class Output {
       server,
     });
     if (!this.json)
-      this.stdout.write(`Updated server details for ${server.alias}.\n`);
+      this.stdout.write(`Updated workspace details for ${server.alias}.\n`);
   }
 
   clawgateUpgrade(result: UpgradeResult): void {
@@ -350,6 +350,7 @@ export class Output {
     externalChatHandoff?: ExternalChatHandoff,
     capabilities?: CapabilityInventory | null,
     generatedAt?: string | null,
+    workspaceName?: string,
   ): void {
     const workspace = {
       server_id: serverId,
@@ -369,7 +370,11 @@ export class Output {
     }
     this.event(event);
     if (!this.json) {
-      this.stdout.write(`Paired ${displayName} (${origin}).\n`);
+      this.stdout.write(
+        workspaceName
+          ? `Paired with ${workspaceName} (${origin}).\n`
+          : `Paired with ${origin}.\n`,
+      );
       if (capabilities) this.renderInventory(capabilities, generatedAt);
       else
         this.stdout.write(
@@ -822,7 +827,7 @@ export class Output {
     });
     if (!this.json) {
       const messages: Record<UsersAddResult["code"], string> = {
-        invited: `Invitation sent for ${result.requested_role} access${result.sudo_enabled === true ? " with full server access" : result.sudo_enabled === false ? " without full server access" : ""}. Access begins after acceptance.`,
+        invited: `Invitation sent for ${result.requested_role} access${result.sudo_enabled === true ? " with full workspace access" : result.sudo_enabled === false ? " without full workspace access" : ""}. Access begins after acceptance.`,
         already_pending: "An invitation is already pending; it was not resent.",
         already_member: "Already a member; access unchanged.",
         already_owner: "Already the owner; access unchanged.",
@@ -855,13 +860,13 @@ export class Output {
       this.stdout.write("Current members:\n");
       for (const member of result.members)
         this.stdout.write(
-          `${member.email}: ${member.role}${member.is_owner ? " (owner)" : ""}${member.sudo_enabled === true ? " — full server access enabled" : member.sudo_enabled === false ? " — full server access disabled" : ""}\n`,
+          `${member.email}: ${member.role}${member.is_owner ? " (owner)" : ""}${member.sudo_enabled === true ? " — full workspace access enabled" : member.sudo_enabled === false ? " — full workspace access disabled" : ""}\n`,
         );
       if (!result.members.length) this.stdout.write("No members returned.\n");
       this.stdout.write("Invitations:\n");
       for (const invite of result.invites)
         this.stdout.write(
-          `${invite.email}: ${invite.status}${invite.is_expired && invite.status === "pending" ? " (expired)" : ""} — ${invite.role}${invite.sudo_enabled === true ? " — full server access enabled" : invite.sudo_enabled === false ? " — full server access disabled" : ""}\n`,
+          `${invite.email}: ${invite.status}${invite.is_expired && invite.status === "pending" ? " (expired)" : ""} — ${invite.role}${invite.sudo_enabled === true ? " — full workspace access enabled" : invite.sudo_enabled === false ? " — full workspace access disabled" : ""}\n`,
         );
       if (!result.invites.length)
         this.stdout.write("No pending or accepted invitations.\n");

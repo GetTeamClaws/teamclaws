@@ -125,7 +125,12 @@ export class BrokerClient {
     if (response.status < 200 || response.status >= 300)
       throw errorFromResponse(response, "server_metadata_update_failed");
     if (!isObject(response.body)) throw invalidMetadataResponse();
-    assertExactKeys(response.body, ["server"], [], "server metadata response");
+    assertExactKeys(
+      response.body,
+      ["server"],
+      [],
+      "workspace metadata response",
+    );
     return editableServer(response.body.server, id);
   }
 
@@ -506,7 +511,7 @@ export class BrokerClient {
       response.body,
       ["should_prompt", "server"],
       [],
-      "server metadata prompt response",
+      "workspace metadata prompt response",
     );
     if (typeof response.body.should_prompt !== "boolean")
       throw invalidMetadataResponse();
@@ -654,7 +659,7 @@ function emailPolicy(value: unknown): EmailAssignmentPolicy {
 function invalidMetadataResponse(): TeamClawsError {
   return new TeamClawsError(
     "invalid_response",
-    "TeamClaws returned invalid server metadata.",
+    "TeamClaws returned invalid workspace metadata.",
     { exitCode: 9 },
   );
 }
@@ -665,7 +670,7 @@ function editableServer(value: unknown, expectedId: string): ServerMetadata {
     value,
     ["id", "alias", "description", "custom_alias", "can_edit_metadata"],
     [],
-    "server metadata",
+    "workspace metadata",
   );
   const id = normalizeUuid(value.id);
   if (
@@ -678,7 +683,7 @@ function editableServer(value: unknown, expectedId: string): ServerMetadata {
     throw invalidMetadataResponse();
   return {
     server_id: id,
-    alias: requireString(value.alias, "server alias", 200),
+    alias: requireString(value.alias, "workspace alias", 200),
     description: value.description,
     custom_alias: value.custom_alias,
     can_edit_metadata: true,

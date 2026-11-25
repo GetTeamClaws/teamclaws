@@ -109,7 +109,7 @@ export async function runClawgateUpgrade(
     return {
       outcome,
       workspace_url: `${credential.origin}/teamclaws-admin/`,
-      status_command: `teamclaws servers upgrade status ${credential.server_id}${runId ? ` --run-id ${runId}` : ""}`,
+      status_command: `teamclaws workspaces upgrade status ${credential.server_id}${runId ? ` --run-id ${runId}` : ""}`,
       run_id: runId ?? null,
       run,
       ...(failure

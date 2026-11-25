@@ -16,7 +16,7 @@ transport, idempotency, and durable request polling.
   requests then go directly to the paired workspace using its saved credential.
 - Do not download or execute the generated target helper when the installed CLI
   supports these native chat commands.
-- Use only an explicit stable server identifier or canonical workspace origin.
+- Use only an explicit stable workspace ID or canonical workspace origin.
 - Treat the newline-delimited JSON as an allowlisted protocol. Never expose raw
   HTTP responses or provider-native identifiers.
 

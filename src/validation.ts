@@ -94,10 +94,7 @@ export function requireInteger(
   return Number(value);
 }
 
-export function normalizeUuid(
-  value: unknown,
-  label = "server identifier",
-): string {
+export function normalizeUuid(value: unknown, label = "workspace ID"): string {
   const normalized = requireString(value, label, 36).toLowerCase();
   if (!UUID_PATTERN.test(normalized)) {
     throw new TeamClawsError("invalid_target", `The ${label} is not valid.`, {
@@ -147,7 +144,17 @@ export function canonicalWorkspaceOrigin(value: unknown): string {
 
 export function parsePairingTarget(value: string): PairingTarget {
   if (UUID_PATTERN.test(value)) return { server_id: value.toLowerCase() };
-  return { workspace_url: canonicalWorkspaceUrl(value) };
+  try {
+    return { workspace_url: canonicalWorkspaceUrl(value) };
+  } catch (error) {
+    if (!(error instanceof TeamClawsError) || error.code !== "invalid_target")
+      throw error;
+    throw new TeamClawsError(
+      "invalid_target",
+      "Use the workspace ID from teamclaws workspaces list or the full HTTPS workspace URL.",
+      { exitCode: 2 },
+    );
+  }
 }
 
 export function validateDirectTarget(value: unknown): DirectTarget {
@@ -399,7 +406,7 @@ export function parsePairingCredential(value: unknown): PairingCredential {
     device_id: normalizeUuid(value.device_id, "device identifier"),
     device_token: requireString(value.device_token, "device token", 8_192),
     pairing_id: normalizeUuid(value.pairing_id, "pairing identifier"),
-    server_id: normalizeUuid(value.server_id, "server identifier"),
+    server_id: normalizeUuid(value.server_id, "workspace ID"),
     origin: canonicalWorkspaceOrigin(value.origin),
     requester_sub: requireString(value.requester_sub, "requester subject", 255),
     authorization_id: normalizeUuid(
@@ -574,7 +581,7 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
   if (!isObject(value)) {
     throw new TeamClawsError(
       "invalid_response",
-      "TeamClaws returned an invalid server list.",
+      "TeamClaws returned an invalid workspace list.",
       {
         exitCode: 9,
       },
@@ -583,7 +590,7 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
   if (!Array.isArray(value.servers)) {
     throw new TeamClawsError(
       "invalid_response",
-      "TeamClaws returned an invalid server list.",
+      "TeamClaws returned an invalid workspace list.",
       {
         exitCode: 9,
       },
@@ -623,7 +630,7 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
     ) {
       throw new TeamClawsError(
         "invalid_response",
-        "TeamClaws returned an invalid server description.",
+        "TeamClaws returned an invalid workspace description.",
         { exitCode: 9 },
       );
     }
@@ -636,7 +643,7 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
     ) {
       throw new TeamClawsError(
         "invalid_response",
-        "TeamClaws returned invalid server editing permissions.",
+        "TeamClaws returned invalid workspace editing permissions.",
         { exitCode: 9 },
       );
     }
@@ -679,7 +686,7 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
         ? {
             created_at: requireIsoDate(
               server.created_at,
-              "server creation time",
+              "workspace creation time",
             ),
           }
         : {}),
@@ -715,7 +722,7 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
                   ),
           }
         : {}),
-      alias: requireString(server.alias, "server alias", 200),
+      alias: requireString(server.alias, "workspace alias", 200),
       ...(typeof server.description === "string"
         ? { description: server.description }
         : {}),
@@ -725,7 +732,7 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
               if (!Array.isArray(server.resources))
                 throw new TeamClawsError(
                   "invalid_response",
-                  "TeamClaws returned invalid server resources.",
+                  "TeamClaws returned invalid workspace resources.",
                   { exitCode: 9 },
                 );
               return server.resources.map((resource) => {
@@ -737,7 +744,7 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
                 )
                   throw new TeamClawsError(
                     "invalid_response",
-                    "TeamClaws returned an invalid server resource.",
+                    "TeamClaws returned an invalid workspace resource.",
                     { exitCode: 9 },
                   );
                 return {
@@ -774,7 +781,7 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
         ? { can_edit_metadata: server.can_edit_metadata }
         : {}),
       workspace_url: canonicalWorkspaceUrl(server.workspace_url),
-      status: requireString(server.status, "server status", 40),
+      status: requireString(server.status, "workspace status", 40),
       pairing_ready: server.pairing_ready,
       version:
         typeof server.version === "string" && server.version

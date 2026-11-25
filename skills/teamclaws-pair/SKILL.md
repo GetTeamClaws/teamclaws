@@ -17,7 +17,7 @@ workspace user; user membership is a separate privilege.
 ## Required boundary
 
 - If workspace discovery was performed through a model context protocol client,
-  pass only the selected stable TeamClaws server identifier to the command.
+  pass only the selected stable TeamClaws workspace ID to the command.
 - Never pass, request, print, or persist the model context protocol access token.
 - Never request scopes, capability bundles, profiles, roles, user types, or
   permission labels. Pairing grants the standard host-issued credential.
@@ -27,7 +27,7 @@ workspace user; user membership is a separate privilege.
   header, cookie, private key, or upstream response body.
 
 Pairing and pair status require a valid TeamClaws CLI login, including when an
-explicit workspace address or server identifier is supplied. On `login_required`
+explicit workspace address or workspace ID is supplied. On `login_required`
 or `invalid_authentication` (exit 3), explain that login is required. For a
 status-only request, stop. For an authorized connect request, follow the login
 skill and resume after verified login. Do not retry with an explicit target to bypass login.
@@ -40,7 +40,7 @@ When the user asks whether this computer is already paired or connected, run
 only:
 
 ```text
-teamclaws pair status <stable-server-identifier-or-canonical-workspace-address> --json
+teamclaws pair status <stable-workspace-id-or-https-url> --json
 ```
 
 Read the terminal `pairing_status` or authentication `error` event, answer immediately, and stop.
@@ -52,14 +52,14 @@ question. A `paired` result does not imply a request to start chat.
 ## Invocation
 
 ```text
-teamclaws pair <stable-server-identifier> --json
+teamclaws pair <workspace-id> --json
 ```
 
 Use `--no-open` only when automatic browser opening is undesirable. The
 `pairing_browser_required` event provides the safe approval address when approval is needed.
 
-When no selected stable identifier is known, run `teamclaws servers list --json`,
-show each server's display name (`alias`), returned `description`, and readiness,
+When no selected stable identifier is known, run `teamclaws workspaces list --json`,
+show each workspace's display name (`alias`), returned `description`, and readiness,
 and ask which workspace the user wants to pair—even when only one is available.
 If a description is empty or absent, say "No description set." Pass the selected
 `server_id`; aliases are display labels, not unique command targets.
@@ -105,7 +105,7 @@ Browser approval is detected by the running CLI automatically.
 If the execution environment requires yielding the turn, use its supported
 completion callback or automatic wakeup only when it can preserve the original
 process and resume monitoring without a user message. Retain the process handle,
-selected server ID, remaining selections, and authorized task; never persist
+selected workspace ID, remaining selections, and authorized task; never persist
 private pairing material. Remove a temporary wakeup when monitoring ends. If
 neither active waiting nor automatic continuation is supported, report that
 specific limitation; do not claim automatic resumption or silently restart.
@@ -121,7 +121,7 @@ with one status check before proposing another attempt.
 ## After verified pairing
 
 Unless the user explicitly asked to stop at pairing, run
-`teamclaws servers list --json` immediately after completion. Present the fresh
+`teamclaws workspaces list --json` immediately after completion. Present the fresh
 successful inventory following the formatting in
 [teamclaws-onboard](../teamclaws-onboard/SKILL.md#choose-workspaces): one workspace
 per list item or line, with name, description, and readiness. Highlight the

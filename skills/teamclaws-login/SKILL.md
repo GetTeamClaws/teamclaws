@@ -31,12 +31,12 @@ blocks signup. Its normal status check may clear an authoritatively revoked
 login, but preserves state and stops on network errors. Do not automatically
 retry failed or unconfirmed signup. If an account was created and the successful
 exchange response was lost, use the existing browser-login path for recovery.
-After `login_complete` and exit zero, immediately run `teamclaws servers list
---json`. A new account's automatic free server should appear while it builds;
+After `login_complete` and exit zero, immediately run `teamclaws workspaces list
+--json`. A new account's automatic free workspace should appear while it builds;
 show its actual state, creation time and build estimate. Continue preparing the
 user's project while it becomes ready. Use the selected workspace, or ask which
 workspace should run the project when the destination is ambiguous. Follow the
-onboarding skill if the expected server is missing.
+onboarding skill if the expected workspace is missing.
 
 ## Existing account browser login
 
