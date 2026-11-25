@@ -144,7 +144,11 @@ export class Output {
     }
   }
 
-  servers(servers: ServerSummary[], workspaceCount?: number): void {
+  servers(
+    servers: ServerSummary[],
+    workspaceCount?: number,
+    showClawgateVersion = false,
+  ): void {
     const now = Date.now();
     const warnings = servers.flatMap((server) => {
       if (server.is_free !== true || !server.free_expires_at) return [];
@@ -207,6 +211,18 @@ export class Output {
         this.stdout.write(
           `${index + 1}. ${server.alias} — ${server.server_id} — ${server.workspace_url} — ${status} — ${server.pairing_ready ? "ready to pair" : "not ready to pair"}\n`,
         );
+        if (showClawgateVersion) {
+          const { version, available_version, update_available } = server;
+          const updateStatus =
+            update_available === true
+              ? "yes"
+              : update_available === false
+                ? "no"
+                : "N/A";
+          this.stdout.write(
+            `   ClawGate Version: ${version ?? "N/A"} — Available version: ${available_version ?? "N/A"} — Update available: ${updateStatus}\n`,
+          );
+        }
         if (server.created_at)
           this.stdout.write(`   Created: ${server.created_at}\n`);
         if (building)

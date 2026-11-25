@@ -754,6 +754,18 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
       workspace_url: canonicalWorkspaceUrl(server.workspace_url),
       status: requireString(server.status, "server status", 40),
       pairing_ready: server.pairing_ready,
+      version:
+        typeof server.version === "string" && server.version
+          ? server.version
+          : null,
+      available_version:
+        typeof server.available_version === "string" && server.available_version
+          ? server.available_version
+          : null,
+      update_available:
+        typeof server.update_available === "boolean"
+          ? server.update_available
+          : null,
     };
   });
 }
