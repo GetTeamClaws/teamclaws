@@ -56,15 +56,27 @@ export async function runShell(
       );
     const server = matches[0]!;
     const url = `${new URL(server.workspace_url).origin}/teamclaws-admin/api/shell/`;
-    response = await requestJson(fetcher, url, {
-      ...options,
-      headers: await authorization.headersForAccountShell(
+    let headers;
+    try {
+      headers = await authorization.headersForAccountShell(
         "POST",
         url,
         server,
         signal,
-      ),
-    });
+      );
+    } catch (error) {
+      if (
+        error instanceof TeamClawsError &&
+        error.code === "workspace_building"
+      )
+        throw new TeamClawsError(
+          "workspace_building",
+          "Workspace is still building. Your command was not sent.",
+          { retryable: true, exitCode: 5 },
+        );
+      throw error;
+    }
+    response = await requestJson(fetcher, url, { ...options, headers });
   }
   if (response.status !== 200)
     throw errorFromResponse(response, "shell_failed");

@@ -142,8 +142,8 @@ progress or recover after interruption, run the returned status command with
 unknown, check that same run before considering any new upgrade request.
 
 - After signup, immediately list servers so the user can see their automatic
-  free server building. Show its actual state, creation time and returned build
-  estimate. Prepare the app's files and configuration while it builds, then
+  free server building. Prefer its workspace state and recorded transition
+  time when present. Prepare the app's files and configuration while it builds, then
   check the list again as work proceeds. Verify readiness through actual state
   and command results.
 - With one usable workspace, connect it to the user's task: “I can get your

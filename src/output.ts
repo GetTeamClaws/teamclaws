@@ -29,6 +29,13 @@ import type {
 const LOGIN_ACCOUNT_GUIDANCE =
   "Use your TeamClaws account. If you already have a workspace, use the account that has access to it. This may use a different email from your AI assistant account.";
 
+const workspaceStateLabels = {
+  building: "Building",
+  running: "Running",
+  powered_off: "Powered Off",
+  error: "Error",
+};
+
 export type Writable = { write(chunk: string): unknown };
 
 export class Output {
@@ -196,19 +203,27 @@ export class Output {
       }
       servers.forEach((server, index) => {
         const building =
+          server.workspace_state === undefined &&
           !server.pairing_ready &&
           server.deployment_status !== "failed" &&
           (server.status === "creating" ||
             (server.status === "running" &&
               (server.deployment_status === "queued" ||
                 server.deployment_status === "running")));
-        const status = building
-          ? server.status === "creating"
-            ? "creating"
-            : "deploying"
-          : server.deployment_status === "failed" && !server.pairing_ready
-            ? `${server.status} — deployment needs review`
-            : server.status;
+        let status = server.status;
+        if (server.workspace_state !== undefined) {
+          status =
+            server.workspace_state === null
+              ? "Unknown"
+              : workspaceStateLabels[server.workspace_state];
+        } else if (building) {
+          status = server.status === "creating" ? "creating" : "deploying";
+        } else if (
+          server.deployment_status === "failed" &&
+          !server.pairing_ready
+        ) {
+          status = `${server.status} — deployment needs review`;
+        }
         this.stdout.write(
           `${index + 1}. ${server.alias} — ${server.server_id} — ${server.workspace_url} — ${status} — ${server.pairing_ready ? "ready to pair" : "not ready to pair"}\n`,
         );
@@ -226,6 +241,12 @@ export class Output {
         }
         if (server.created_at)
           this.stdout.write(`   Created: ${server.created_at}\n`);
+        if (server.status_since)
+          this.stdout.write(`   Status since: ${server.status_since}\n`);
+        if (server.workspace_state === "building")
+          this.stdout.write(
+            "   Run teamclaws servers list again to check workspace readiness.\n",
+          );
         if (building)
           this.stdout.write(
             "   Estimated build time: 10 minutes. Run teamclaws servers list again to check readiness.\n" +

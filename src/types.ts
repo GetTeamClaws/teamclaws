@@ -62,6 +62,8 @@ export type ServerSummary = {
   free_expires_at?: string | null;
   workspace_url: string;
   status: string;
+  workspace_state?: "building" | "running" | "powered_off" | "error" | null;
+  status_since?: string | null;
   created_at?: string;
   deployment_status?: string | null;
   pairing_ready: boolean;

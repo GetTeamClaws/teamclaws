@@ -166,6 +166,10 @@ compliance in every agent environment.
 brokers return `servers` and `workspace_count`: the count of all non-deleted
 owned and eligible shared workspaces, including those without a hostname yet.
 Individual server entries retain aliases, stable IDs, status and `pairing_ready`.
+Updated brokers include `workspace_state` and `status_since`. The state is
+`building`, `running`, `powered_off`, or `error` when established. Unknown
+values are `null`. The timestamp, when available, records the start of that
+state. Older brokers can omit these fields.
 When supported, they also include the server description. Older brokers may
 omit descriptions; nonempty descriptions appear under each readable list entry.
 The resources opt-in adds `resources: [{type, name, permissions, skills}]` after the description
@@ -381,10 +385,9 @@ Choose `read_only`, `write_with_approval_read`, or `write_read`. The command pri
 
 ## Submit a bug report or feedback
 
-`teamclaws servers list` shows each server's status and creation timestamp.
-Creating or deploying workspaces show an estimated build time of 10 minutes;
-this is an estimate, not a deadline. Run the list again to check for
-`ready to pair`. Stopped servers remain listed with their actual status.
+`teamclaws servers list` shows each server's workspace state and any recorded
+state transition time. Run the list again to check workspace readiness. Older
+brokers provide the legacy status and creation timestamp.
 If a build seems stuck, include its server ID and creation time in a bug report.
 
 ```sh
@@ -454,6 +457,9 @@ Normal mode forwards stdout and stderr without adding text. JSON mode emits one
 object with `stdout`, `stderr`, and `exit_code`. Both modes return the remote
 process exit code. HTTP/authentication/transport errors use the existing CLI
 error output and failure codes.
+For a workspace still building, the account proof service can return
+`workspace_building` before the command is sent. Check the workspace's state
+with `teamclaws servers list` before trying again.
 
 The client sends one POST to `/teamclaws-admin/api/shell/` with
 `Content-Type: text/plain; charset=utf-8`, never follows redirects, and never

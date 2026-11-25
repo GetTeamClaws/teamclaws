@@ -653,6 +653,28 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
     }
     return {
       server_id: normalizeUuid(server.id),
+      ...(server.workspace_state !== undefined
+        ? {
+            workspace_state:
+              server.workspace_state === "building" ||
+              server.workspace_state === "running" ||
+              server.workspace_state === "powered_off" ||
+              server.workspace_state === "error"
+                ? server.workspace_state
+                : null,
+          }
+        : {}),
+      ...(server.status_since !== undefined
+        ? {
+            status_since:
+              server.status_since === null
+                ? null
+                : requireIsoDate(
+                    server.status_since,
+                    "workspace status start time",
+                  ),
+          }
+        : {}),
       ...(server.created_at !== undefined
         ? {
             created_at: requireIsoDate(
