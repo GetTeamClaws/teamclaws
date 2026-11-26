@@ -32,8 +32,7 @@ user's work and any steps already completed:
 1. For a new account, we'll create it through the CLI and verify the emailed code
    using the agent's authorized inbox access; no browser approval is needed.
    For an ordinary existing account, we'll use browser login if signed out.
-2. We'll find your workspace and check its state. A new account's automatic
-   free workspace may still be building; show that progress while preparing the project.
+2. We'll find your workspace and check its state. If you want to try Lite, we’ll show the terms before claiming. Once claimed, we’ll show its build progress.
 3. We'll put your project there, set up what it needs, run it, and check the
    result. If you already asked for a particular app or job, continue with it.
    Otherwise, suggest useful work based on the conversation and ask what they'd
@@ -141,8 +140,7 @@ progress or recover after interruption, run the returned status command with
 `--json`. Report Ready only for the `ready` outcome. If the start outcome is
 unknown, check that same run before considering any new upgrade request.
 
-- After signup, immediately list workspaces so the user can see their automatic
-  free workspace building. Prefer its workspace state and recorded transition
+- Claim one Lite workspace free for two days without a credit card. Your trial starts when you claim. Add a card for five more free days, then Lite renews at $29/month unless canceled. Run `teamclaws workspaces claim --confirm --json` only after the user authorizes the claim. Then list workspaces and prefer the recorded state and transition
   time when present. Prepare the app's files and configuration while it builds, then
   check the list again as work proceeds. Verify readiness through actual state
   and command results.
@@ -155,9 +153,7 @@ unknown, check that same run before considering any new upgrade request.
 - `not_ready` describes pairing readiness; use the workspace's actual deployment
   state and authorized shell results to determine whether the project can run.
 - `discovery_state: no_workspaces` means the broker confirmed zero accessible
-  workspaces, including those being prepared. For a new signup, report that the
-  expected free workspace is missing and investigate the signup/provisioning
-  result. For an existing account, help the user review their workspaces at
+  workspaces, including those being prepared. For a new signup, offer to claim the Lite trial using the terms above. For an existing account, help the user review their workspaces at
   https://teamclaws.com/app/ and choose an available provisioning option within
   their authorization.
 - `unknown` means the broker did not supply a complete inventory count. Check

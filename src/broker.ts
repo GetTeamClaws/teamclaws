@@ -97,6 +97,37 @@ export class BrokerClient {
     return parseWorkspaceInventory(response.body);
   }
 
+  async claimLiteTrial(signal?: AbortSignal): Promise<{
+    workspace_id: string;
+    expires_at: string | null;
+  }> {
+    const url = `${API_BASE}workspaces/claim/`;
+    const response = await requestJson(this.fetcher, url, {
+      method: "POST",
+      headers: await this.issuerHeaders("POST", url),
+      body: { confirm: true },
+      ...(signal ? { signal } : {}),
+    });
+    if (response.status !== 200)
+      throw errorFromResponse(response, "trial_claim_failed");
+    if (
+      !isObject(response.body) ||
+      (response.body.expires_at !== null &&
+        (typeof response.body.expires_at !== "string" ||
+          !Number.isFinite(Date.parse(response.body.expires_at))))
+    ) {
+      throw new TeamClawsError(
+        "invalid_response",
+        "TeamClaws returned an invalid trial claim.",
+        { exitCode: 9 },
+      );
+    }
+    return {
+      workspace_id: normalizeUuid(response.body.workspace_id),
+      expires_at: response.body.expires_at,
+    };
+  }
+
   async updateServerMetadata(
     serverId: string,
     updates: ServerMetadataUpdate,

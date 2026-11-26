@@ -304,6 +304,16 @@ export async function run(
         output.servers(inventory.servers, inventory.workspace_count, true);
         return 0;
       }
+      case "workspace_claim": {
+        const claim = await broker.claimLiteTrial(signal);
+        if (parsed.json) stdout.write(`${JSON.stringify(claim)}\n`);
+        else {
+          stdout.write(`Lite workspace: ${claim.workspace_id}\n`);
+          if (claim.expires_at)
+            stdout.write(`Trial access until: ${claim.expires_at}\n`);
+        }
+        return 0;
+      }
       case "servers_update": {
         const server = await broker.updateServerMetadata(
           parsed.serverId,
@@ -551,7 +561,7 @@ type ParsedArguments =
     }
   | { action: "signup_verify"; json: boolean }
   | {
-      action: "auth_status" | "servers_list";
+      action: "auth_status" | "servers_list" | "workspace_claim";
       json: boolean;
     }
   | { action: "logout"; json: boolean; revoke: boolean }
@@ -776,6 +786,17 @@ export function parseArguments(arguments_: string[]): ParsedArguments {
   }
   const workspaceGroup =
     arguments_[0] === "workspaces" || arguments_[0] === "servers";
+  if (arguments_[0] === "workspaces" && arguments_[1] === "claim") {
+    const { flags } = parseNamedOptions(arguments_.slice(2), {
+      values: [],
+      booleans: ["--confirm", "--json"],
+    });
+    if (!flags.has("--confirm"))
+      throw usageError(
+        "Claim one Lite workspace free for two days without a credit card. Your trial starts when you claim. Add a card for five more free days, then Lite renews at $29/month unless canceled. To claim, run teamclaws workspaces claim --confirm.",
+      );
+    return { action: "workspace_claim", json: flags.has("--json") };
+  }
   if (workspaceGroup && arguments_[1] === "upgrade") {
     const status = arguments_[2] === "status";
     const position = status ? 3 : 2;
@@ -1115,7 +1136,7 @@ async function discoverTarget(
     throw new TeamClawsError(
       "no_pairing_ready_workspaces",
       inventory.workspace_count === 0
-        ? "No TeamClaws workspaces are available to this account. Purchase a workspace at https://teamclaws.com/app/."
+        ? "No TeamClaws workspaces are available to this account. Run teamclaws workspaces claim to see the free Lite trial terms, or visit https://teamclaws.com/app/."
         : "No pairing-ready TeamClaws workspaces are available. Check existing workspaces at https://teamclaws.com/app/; this does not mean you need to purchase another.",
       { exitCode: 4 },
     );
@@ -1260,5 +1281,5 @@ function usageError(
 }
 
 export function helpText(): string {
-  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws files link <target> --path <file> [--json]\n  teamclaws projects list <target> [--json]\n  teamclaws projects create <target> --path <directory> [--create-directory] --request-id <uuid> [--json]\n  teamclaws projects rename <target> --project-id <id> [--name <name>] [--path <directory>] --request-id <uuid> [--json]\n  teamclaws projects delete <target> --project-id <id> [--delete-directory] --request-id <uuid> [--json]\n  teamclaws projects hide|show <target> --project-id <id> --request-id <uuid> [--json]\n  teamclaws update [--json]\n  teamclaws shell <workspace-id-or-https-url> --command <text> [--json]\n  teamclaws users add <target> <email> [--sudo] [--json]\n  teamclaws users remove <target> <email> [--json]\n  teamclaws users list <target> [--json]\n  teamclaws login <email> [--json]\n  teamclaws signup <email> [--json]\n  teamclaws signup verify --code-stdin [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws workspaces list [--json]\n  teamclaws workspaces upgrade <target> [--no-wait] [--json]\n  teamclaws workspaces upgrade status <target> [--run-id <id>] [--json]\n  teamclaws workspaces update <workspace-id> [--name <text>] [--description <text>] [--json]\n  teamclaws email accounts [--json]\n  teamclaws email list <workspace-id> [--json]\n  teamclaws email set <workspace-id> <google|microsoft> <account-id> --policy <read_only|write_with_approval_read|write_read> [--json]\n  teamclaws email remove <workspace-id> <google|microsoft> <account-id> [--json]\n  teamclaws bug report --title <text> --body <text> [--json]\n  teamclaws feedback send --title <text> --body <text> [--json]\n  teamclaws git repos [--json]\n  teamclaws git list <workspace-id> [--json]\n  teamclaws git set <workspace-id> <repository-id> --issues <none|read|write> --contents <none|read|write> --pull-requests <none|read|write> --workflows <none|write> [--json]\n  teamclaws git remove <workspace-id> <repository-id> [--json]\n  teamclaws pair status <workspace-id-or-https-url> [--json]\n  teamclaws pair [workspace-id-or-https-url] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
+  return `TeamClaws ${PACKAGE_VERSION}\n\nUsage:\n  teamclaws files link <target> --path <file> [--json]\n  teamclaws projects list <target> [--json]\n  teamclaws projects create <target> --path <directory> [--create-directory] --request-id <uuid> [--json]\n  teamclaws projects rename <target> --project-id <id> [--name <name>] [--path <directory>] --request-id <uuid> [--json]\n  teamclaws projects delete <target> --project-id <id> [--delete-directory] --request-id <uuid> [--json]\n  teamclaws projects hide|show <target> --project-id <id> --request-id <uuid> [--json]\n  teamclaws update [--json]\n  teamclaws shell <workspace-id-or-https-url> --command <text> [--json]\n  teamclaws users add <target> <email> [--sudo] [--json]\n  teamclaws users remove <target> <email> [--json]\n  teamclaws users list <target> [--json]\n  teamclaws login <email> [--json]\n  teamclaws signup <email> [--json]\n  teamclaws signup verify --code-stdin [--json]\n  teamclaws auth status [--json]\n  teamclaws logout [--revoke] [--json]\n  teamclaws workspaces list [--json]\n  teamclaws workspaces claim --confirm [--json]\n  teamclaws workspaces upgrade <target> [--no-wait] [--json]\n  teamclaws workspaces upgrade status <target> [--run-id <id>] [--json]\n  teamclaws workspaces update <workspace-id> [--name <text>] [--description <text>] [--json]\n  teamclaws email accounts [--json]\n  teamclaws email list <workspace-id> [--json]\n  teamclaws email set <workspace-id> <google|microsoft> <account-id> --policy <read_only|write_with_approval_read|write_read> [--json]\n  teamclaws email remove <workspace-id> <google|microsoft> <account-id> [--json]\n  teamclaws bug report --title <text> --body <text> [--json]\n  teamclaws feedback send --title <text> --body <text> [--json]\n  teamclaws git repos [--json]\n  teamclaws git list <workspace-id> [--json]\n  teamclaws git set <workspace-id> <repository-id> --issues <none|read|write> --contents <none|read|write> --pull-requests <none|read|write> --workflows <none|write> [--json]\n  teamclaws git remove <workspace-id> <repository-id> [--json]\n  teamclaws pair status <workspace-id-or-https-url> [--json]\n  teamclaws pair [workspace-id-or-https-url] [--no-open] [--json]\n  teamclaws chat list <target> [--json]\n  teamclaws chat history <target> [--json]\n  teamclaws chat messages <target> --chat-id <uuid> [--after-message-id <n>] [--json]\n  teamclaws chat capabilities <target> [--json]\n  teamclaws chat start <target> --message <text> [selection options] [--json]\n  teamclaws chat send <target> --session-id <uuid> --message <text> [--json]\n  teamclaws chat watch <target> --session-id <uuid> --request-id <uuid> [resume cursors] [--json]\n\nPair status performs one bounded direct verification and stops. Pairing grants the standard host-issued credential. Chat commands use that credential directly against the selected workspace.\n`;
 }

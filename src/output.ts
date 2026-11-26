@@ -196,7 +196,7 @@ export class Output {
       if (servers.length === 0) {
         this.stdout.write(
           workspaceCount === 0
-            ? "No TeamClaws workspaces are available to this account. Purchase a workspace at https://teamclaws.com/app/.\n"
+            ? "No TeamClaws workspaces are available to this account. Run teamclaws workspaces claim to see the free Lite trial terms, or visit https://teamclaws.com/app/.\n"
             : "No pairing-ready TeamClaws workspaces are listed. Check existing workspaces at https://teamclaws.com/app/ before considering a purchase.\n",
         );
         return;

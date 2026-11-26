@@ -32,7 +32,7 @@ login, but preserves state and stops on network errors. Do not automatically
 retry failed or unconfirmed signup. If an account was created and the successful
 exchange response was lost, use the existing browser-login path for recovery.
 After `login_complete` and exit zero, immediately run `teamclaws workspaces list
---json`. A new account's automatic free workspace should appear while it builds;
+--json`. If the user wants to start the Lite trial, show the claim terms in the onboarding skill and obtain authorization before claiming. Once the workspace appears,
 show its actual state, creation time and build estimate. Continue preparing the
 user's project while it becomes ready. Use the selected workspace, or ask which
 workspace should run the project when the destination is ambiguous. Follow the
