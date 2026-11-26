@@ -87,7 +87,7 @@ export async function run(
     );
   }
   if (parsed.action === "help") {
-    stdout.write(helpText());
+    stdout.write(parsed.text ?? helpText());
     return 0;
   }
   if (parsed.action === "version") {
@@ -551,7 +551,7 @@ type ParsedArguments =
     }
   | { action: "file_link"; json: boolean; target: string; path: string }
   | { action: "shell"; json: boolean; target: string; command: string }
-  | { action: "help"; json: boolean }
+  | { action: "help"; json: boolean; text?: string }
   | { action: "version"; json: boolean }
   | { action: "update"; json: boolean }
   | {
@@ -659,16 +659,32 @@ export function parseArguments(arguments_: string[]): ParsedArguments {
   }
 
   if (arguments_[0] === "signup") {
-    if (arguments_[1] === "verify") {
-      const { flags } = parseNamedOptions(arguments_.slice(2), {
+    const verify = arguments_[1] === "verify";
+    const options = arguments_.slice(verify ? 2 : 1);
+    const helpOptions = options.filter((arg) => arg !== "--json");
+    if (
+      helpOptions.length === 1 &&
+      (helpOptions[0] === "--help" || helpOptions[0] === "-h")
+    ) {
+      return {
+        action: "help",
+        json: options.includes("--json"),
+        text: verify
+          ? `Usage: ${SIGNUP_VERIFY_USAGE}\n\n${SIGNUP_CODE_INPUT}\n`
+          : `Usage: teamclaws signup <email> [--json]\n\nSends a signup code to your email. Then run ${SIGNUP_VERIFY_USAGE}.\n${SIGNUP_CODE_INPUT}\n`,
+      };
+    }
+    if (verify) {
+      if (!options.includes("--code-stdin"))
+        throw usageError(`Run ${SIGNUP_VERIFY_USAGE}. ${SIGNUP_CODE_INPUT}`);
+      const { flags } = parseNamedOptions(options, {
         values: [],
         booleans: ["--code-stdin", "--json"],
       });
-      if (!flags.has("--code-stdin")) throw usageError();
       return { action: "signup_verify", json: flags.has("--json") };
     }
     const email = requiredPositional(arguments_, 1);
-    const { flags } = parseNamedOptions(arguments_.slice(2), {
+    const { flags } = parseNamedOptions(options.slice(1), {
       values: [],
       booleans: ["--json"],
     });
@@ -1245,16 +1261,15 @@ async function promptForServer(
   }
 }
 
+const SIGNUP_VERIFY_USAGE = "teamclaws signup verify --code-stdin [--json]";
+const SIGNUP_CODE_INPUT =
+  "Use the same CLI profile you started signup with. Send the emailed code followed by a newline through your execution tool's non-interactive stdin (non-TTY). Keep the code out of command arguments, shell text, chat, logs, and files.";
+
 async function readSignupCode(
   input: NodeJS.ReadableStream,
   signal?: AbortSignal,
 ): Promise<string> {
-  if ((input as NodeJS.ReadStream).isTTY)
-    throw new TeamClawsError(
-      "invalid_command",
-      "Provide the signup code through non-TTY stdin; interactive input is not accepted.",
-      { exitCode: 2 },
-    );
+  if ((input as NodeJS.ReadStream).isTTY) throw usageError(SIGNUP_CODE_INPUT);
   const reader = createInterface({
     input,
     terminal: false,
@@ -1266,7 +1281,7 @@ async function readSignupCode(
       throw new TeamClawsError("cancelled", "Signup was cancelled.", {
         exitCode: 8,
       });
-    return "";
+    throw usageError(SIGNUP_CODE_INPUT);
   } finally {
     reader.close();
   }
