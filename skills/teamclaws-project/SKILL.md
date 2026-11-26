@@ -219,6 +219,13 @@ workspace's supported hosting mechanisms. Read its machine instructions and
 runtime capability manifest through the workspace shell, then follow its assigned
 hosting skill if present. Do not assume an assigned skill exists on every host.
 
+This bundled skill guides the agent on your computer. On supported workspaces,
+the separate `teamclaws-project` command runs inside the workspace shell. Run
+`teamclaws-project --help` there for the supported service operations, and see
+the [web app publishing guide](https://www.teamclaws.com/docs/move-a-project#publish-a-web-app)
+for an example. Use the workspace's authorized hosting path and the access mode
+the user selected.
+
 Use a separate application directory, service, data store, and configuration.
 Bind the runtime to loopback or a Unix socket behind the host's HTTPS proxy.
 Preserve existing TeamClaws admin/chat routes and application boundaries.
