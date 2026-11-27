@@ -54,9 +54,10 @@ The first command stores a private pending request and exits. `signup_pending`
 means the request was accepted, not that an account was created or email delivered.
 If eligible, the inbox receives a single-use code valid for 15 minutes. Supply
 that code to the second command through the execution tool's non-TTY stdin,
-ending with a newline. Never put it in command arguments, shell text (including
-heredocs and here-strings), chat, or logs. The CLI retains its separate secret
-and machine key; neither is emailed.
+ending with a newline. If your tool only runs shell commands, use the heredoc
+example in the login skill and submit the code immediately. Keep the code out of
+command arguments, customer-facing chat, and test reports. The CLI retains its
+separate verifier and machine key.
 
 This also supports fresh email confirmation after access issued by this signup
 flow was rejected. Only the backend can determine that narrow eligibility;

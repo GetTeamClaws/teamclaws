@@ -18,10 +18,17 @@ If account creation and reading the supplied inbox are authorized, run `teamclaw
 `signup_pending` event is conditional acceptance, not proof of mail delivery or
 account creation. For eligible mailboxes, read the 15-minute single-use code.
 Run `teamclaws signup verify --code-stdin --json` and supply the code plus a
-newline using the execution tool's non-TTY stdin. Never expose the code in chat,
-command arguments, shell text (including heredocs and here-strings), logs, or
-files. The CLI handles its private verifier and machine key itself. This path
-does not open a browser or read email for you.
+newline using the execution tool's non-TTY stdin. If your tool only runs shell
+commands, replace EMAIL_CODE with the emailed code and run this POSIX heredoc
+immediately:
+
+    teamclaws signup verify --code-stdin --json << 'TEAMCLAWS_CODE'
+    EMAIL_CODE
+    TEAMCLAWS_CODE
+
+Keep the code out of command arguments, customer-facing chat, and test reports.
+The CLI handles its private verifier and machine key. Use your authorized email
+tool to read the code.
 
 The same commands can reconfirm only accounts whose access from this signup
 flow was rejected; the backend checks eligibility and issues new authorization.

@@ -1,5 +1,5 @@
 export const PACKAGE_NAME = "teamclaws";
-export const PACKAGE_VERSION = "2.0.38";
+export const PACKAGE_VERSION = "2.0.39";
 export const CLIENT_NAME = "teamclaws-cli";
 export const CONTRACT_VERSION = 1;
 export const OUTPUT_SCHEMA_VERSION = 1;

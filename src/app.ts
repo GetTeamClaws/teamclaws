@@ -1263,7 +1263,7 @@ async function promptForServer(
 
 const SIGNUP_VERIFY_USAGE = "teamclaws signup verify --code-stdin [--json]";
 const SIGNUP_CODE_INPUT =
-  "Use the same CLI profile you started signup with. Send the emailed code followed by a newline through your execution tool's non-interactive stdin (non-TTY). Keep the code out of command arguments, shell text (including heredocs and here-strings), chat, logs, and files.";
+  "Use the same CLI profile you started signup with. Send the emailed code followed by a newline through your execution tool's non-interactive stdin (non-TTY). If your tool only runs shell commands, use this POSIX heredoc and replace EMAIL_CODE with the code from the email:\n\nteamclaws signup verify --code-stdin --json << 'TEAMCLAWS_CODE'\nEMAIL_CODE\nTEAMCLAWS_CODE\n\nSubmit the code immediately. Keep it out of command arguments, customer-facing chat, and test reports.";
 
 async function readSignupCode(
   input: NodeJS.ReadableStream,

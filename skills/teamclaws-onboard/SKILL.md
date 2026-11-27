@@ -57,9 +57,10 @@ access are authorized, run `teamclaws signup <email> --json`, read the single-us
 15-minute code from that inbox, and run
 `teamclaws signup verify --code-stdin --json` on the same initiating CLI.
 Supply the code followed by a newline through the execution tool's non-TTY
-stdin. Keep it out of shell text, including heredocs and here-strings. This is
-the normal new-customer path; do not search for an old account or substitute
-browser login.
+stdin. If your tool only runs shell commands, use the heredoc example in
+[teamclaws-login](../teamclaws-login/SKILL.md) and submit the code immediately.
+This is the normal new-customer path; do not search for an old account or
+substitute browser login.
 The same commands support fresh confirmation after access from this signup flow
 was rejected. Follow [teamclaws-login](../teamclaws-login/SKILL.md).
 Explain that the email code authorizes this CLI; keep it out of chat and command
