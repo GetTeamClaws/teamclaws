@@ -56,8 +56,10 @@ continue to discovery. If the customer is new and account creation and inbox
 access are authorized, run `teamclaws signup <email> --json`, read the single-use
 15-minute code from that inbox, and run
 `teamclaws signup verify --code-stdin --json` on the same initiating CLI.
-Supply the code followed by a newline through non-TTY stdin. This is the normal
-new-customer path; do not search for an old account or substitute browser login.
+Supply the code followed by a newline through the execution tool's non-TTY
+stdin. Keep it out of shell text, including heredocs and here-strings. This is
+the normal new-customer path; do not search for an old account or substitute
+browser login.
 The same commands support fresh confirmation after access from this signup flow
 was rejected. Follow [teamclaws-login](../teamclaws-login/SKILL.md).
 Explain that the email code authorizes this CLI; keep it out of chat and command
@@ -141,9 +143,9 @@ progress or recover after interruption, run the returned status command with
 unknown, check that same run before considering any new upgrade request.
 
 - Claim one Lite workspace free for two days without a credit card. Your trial starts when you claim. Add a card for five more free days, then Lite renews at $29/month unless canceled. Run `teamclaws workspaces claim --confirm --json` only after the user authorizes the claim. Then list workspaces and prefer the recorded state and transition
-  time when present. Prepare the app's files and configuration while it builds, then
-  check the list again as work proceeds. Verify readiness through actual state
-  and command results.
+  time when present. If Building, say the estimated build time is about 10 minutes.
+  Prepare the app's files and configuration while it builds, then check the list
+  again as work proceeds. Verify readiness through actual state and command results.
 - With one usable workspace, connect it to the user's task: “I can get your
   project running on **[alias]**. Which project would you like to move?” If the
   user already selected the project and destination, continue the work.

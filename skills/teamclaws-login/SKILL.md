@@ -19,8 +19,9 @@ If account creation and reading the supplied inbox are authorized, run `teamclaw
 account creation. For eligible mailboxes, read the 15-minute single-use code.
 Run `teamclaws signup verify --code-stdin --json` and supply the code plus a
 newline using the execution tool's non-TTY stdin. Never expose the code in chat,
-command arguments, shell text, logs, or files. The CLI handles its private verifier
-and machine key itself. This path does not open a browser or read email for you.
+command arguments, shell text (including heredocs and here-strings), logs, or
+files. The CLI handles its private verifier and machine key itself. This path
+does not open a browser or read email for you.
 
 The same commands can reconfirm only accounts whose access from this signup
 flow was rejected; the backend checks eligibility and issues new authorization.
@@ -33,7 +34,8 @@ retry failed or unconfirmed signup. If an account was created and the successful
 exchange response was lost, use the existing browser-login path for recovery.
 After `login_complete` and exit zero, immediately run `teamclaws workspaces list
 --json`. If the user wants to start the Lite trial, show the claim terms in the onboarding skill and obtain authorization before claiming. Once the workspace appears,
-show its actual state, creation time and build estimate. Continue preparing the
+show its actual state and creation time. If Building, say the estimated build
+time is about 10 minutes. Continue preparing the
 user's project while it becomes ready. Use the selected workspace, or ask which
 workspace should run the project when the destination is ambiguous. Follow the
 onboarding skill if the expected workspace is missing.

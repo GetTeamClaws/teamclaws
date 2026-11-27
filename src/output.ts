@@ -243,14 +243,13 @@ export class Output {
           this.stdout.write(`   Created: ${server.created_at}\n`);
         if (server.status_since)
           this.stdout.write(`   Status since: ${server.status_since}\n`);
-        if (server.workspace_state === "building")
+        if (server.workspace_state === "building" || building)
           this.stdout.write(
-            "   Run teamclaws workspaces list again to check workspace readiness.\n",
+            "   Estimated build time: about 10 minutes. Run teamclaws workspaces list again to check readiness.\n",
           );
         if (building)
           this.stdout.write(
-            "   Estimated build time: 10 minutes. Run teamclaws workspaces list again to check readiness.\n" +
-              `   If the build seems stuck: teamclaws bug report --title "Workspace build issue" --body "Workspace ${server.server_id}; created ${server.created_at ?? "unknown"}; describe what happened."\n`,
+            `   If the build seems stuck: teamclaws bug report --title "Workspace build issue" --body "Workspace ${server.server_id}; created ${server.created_at ?? "unknown"}; describe what happened."\n`,
           );
         if (server.description) this.stdout.write(`   ${server.description}\n`);
         if (server.resources) {
