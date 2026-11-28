@@ -39,10 +39,12 @@ blocks signup. Its normal status check may clear an authoritatively revoked
 login, but preserves state and stops on network errors. Do not automatically
 retry failed or unconfirmed signup. If an account was created and the successful
 exchange response was lost, use the existing browser-login path for recovery.
-After `login_complete` and exit zero, immediately run `teamclaws workspaces list
---json`. If the user wants to start the Lite trial, show the claim terms in the onboarding skill and obtain authorization before claiming. Once the workspace appears,
-show its actual state and creation time. If Building, say the estimated build
-time is about 10 minutes. Continue preparing the
+After `login_complete` and exit zero, immediately run
+`teamclaws workspaces list --json`. If the user wants to start the Lite trial,
+show the claim terms in the onboarding skill and obtain authorization before
+claiming. After a successful claim, run the list command again. Show the
+workspace state and, while building, report `status_since` as “Building since”
+when available. Continue preparing the
 user's project while it becomes ready. Use the selected workspace, or ask which
 workspace should run the project when the destination is ambiguous. Follow the
 onboarding skill if the expected workspace is missing.

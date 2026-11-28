@@ -242,10 +242,8 @@ export class Output {
         if (server.created_at)
           this.stdout.write(`   Created: ${server.created_at}\n`);
         if (server.status_since)
-          this.stdout.write(`   Status since: ${server.status_since}\n`);
-        if (server.workspace_state === "building" || building)
           this.stdout.write(
-            "   Estimated build time: about 10 minutes. Run teamclaws workspaces list again to check readiness.\n",
+            `   ${server.workspace_state === "building" ? "Building since" : "Status since"}: ${server.status_since}\n`,
           );
         if (building)
           this.stdout.write(

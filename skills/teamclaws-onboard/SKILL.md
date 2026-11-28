@@ -143,8 +143,12 @@ progress or recover after interruption, run the returned status command with
 `--json`. Report Ready only for the `ready` outcome. If the start outcome is
 unknown, check that same run before considering any new upgrade request.
 
-- Run `teamclaws workspaces claim --json` to read the current offer and consent guidance. Follow that guidance and show the current terms before running `teamclaws workspaces claim --confirm --json`. The public offer is at https://www.teamclaws.com/offers/agents/. Then list workspaces and prefer the recorded state and transition
-  time when present. If Building, say the estimated build time is about 10 minutes.
+- Run `teamclaws workspaces claim --json` to read the current offer and consent
+  guidance. Follow that guidance and show the current terms before running
+  `teamclaws workspaces claim --confirm --json`. The public offer is at
+  https://www.teamclaws.com/offers/agents/. After a successful claim, run
+  `teamclaws workspaces list --json`. While building, report `status_since` as
+  “Building since” when available.
   Prepare the app's files and configuration while it builds, then check the list
   again as work proceeds. Verify readiness through actual state and command results.
 - With one usable workspace, connect it to the user's task: “I can get your
@@ -153,8 +157,9 @@ unknown, check that same run before considering any new upgrade request.
 - With several workspaces and no destination selected, show their names,
   descriptions and states and ask which should run the project. Distinguish
   repeated names with their returned workspace addresses.
-- `not_ready` describes pairing readiness; use the workspace's actual deployment
-  state and authorized shell results to determine whether the project can run.
+- `not_ready` describes pairing readiness. Use `workspace_state` and authorized
+  shell results to determine whether the project can run. A provisioning job
+  can have `deployment_status: running` while `workspace_state` is `building`.
 - `discovery_state: no_workspaces` means the broker confirmed zero accessible
   workspaces, including those being prepared. For a new signup, offer to claim the Lite trial using the terms above. For an existing account, help the user review their workspaces at
   https://teamclaws.com/app/ and choose an available provisioning option within
