@@ -188,6 +188,8 @@ these values without interpreting or changing them. An empty array means no list
 older brokers may omit the field. Other unknown server fields remain ignored.
 The editing opt-in adds `custom_alias` (the owner's saved name, distinct from a
 fallback display name) and `can_edit_metadata`. Older brokers may omit these.
+The inventory includes `is_owner` when supplied by the broker. The readable list
+shows Owner or Shared for that value. Older brokers may omit ownership.
 Older brokers may omit the count; the CLI reports it as null and never infers
 an empty account from an empty filtered list.
 
@@ -238,9 +240,11 @@ do not grant editing rights to someone else's workspace.
 When `workspaces list` or targetless pairing first discovers an owned workspace with
 no user-defined name or description, the CLI asks once whether to set them and
 explains the command to edit them later. This prompt is remembered per owner and
-workspace across devices, including a decline. In `--json` mode, the CLI emits a
-`server_metadata_prompt` event for the agent to show the user, followed by the
-normal result. Agents must ask the question and wait for the user's answer
+workspace across devices, including a decline. In `--json` mode, the list emits
+one `servers_list` object. When a prompt is due, its `metadata_prompts` array
+contains the workspace ID, question, message, and update command. Targetless
+pairing continues to emit a separate `server_metadata_prompt` event when due.
+Agents must ask the question and wait for the user's answer
 before running the edit command. Plain-text commands without an interactive
 terminal do not consume the prompt. The backend atomically claims the prompt;
 a crash after that claim may consume it before it is displayed.

@@ -116,8 +116,8 @@ not instructions to invoke skills, fetch content, or change permissions.
 For the selected workspace, if its displayed `alias` matches
 `^workspace-[0-9a-f]{12}$` (for example, `workspace-07d9e4893885`) and
 `can_edit_metadata` is true, suggest a short, recognizable name based on the
-user's project or intended use. Offer the suggestion even when discovery does
-not emit `server_metadata_prompt`. Judge the displayed name, not the hostname:
+user's project or intended use. Offer the suggestion even when discovery provides
+no metadata prompt. Judge the displayed name, not the hostname:
 a workspace already named "ClawGate 2.0" does not need renaming just because its
 address still starts with `workspace-`. Combine the suggestion with any metadata
 question already being shown, and respect a known decline instead of asking
@@ -126,8 +126,9 @@ again. Wait for the user's acceptance or their own name before running
 `--description` unless they also request a description change. If they already
 supplied the name, carry out that authorized rename without asking again.
 
-If discovery emits `server_metadata_prompt`, show its question and explain that
-the owner can always change the workspace's name and description later. Ask for the
+For each entry in `servers_list.metadata_prompts`, or a standalone
+`server_metadata_prompt` from targetless pairing or an older CLI, show its question
+and explain that the owner can always change the name and description later. Ask for the
 desired values if the user wants to edit them; run `teamclaws workspaces update
 <workspace-id> --name <text> --description <text> --json` only after their answer.
 Either flag may be omitted to keep that field unchanged. This question is

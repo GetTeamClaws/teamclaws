@@ -57,6 +57,7 @@ export type ServerSummary = {
   }>;
   custom_alias?: string;
   can_edit_metadata?: boolean;
+  is_owner?: boolean;
   tier_name?: string | null;
   is_free?: boolean | null;
   free_expires_at?: string | null;

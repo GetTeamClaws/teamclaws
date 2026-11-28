@@ -38,6 +38,13 @@ const workspaceStateLabels = {
 
 export type Writable = { write(chunk: string): unknown };
 
+export type MetadataPrompt = {
+  server_id: string;
+  question: string;
+  message: string;
+  update_command: string;
+};
+
 export class Output {
   constructor(
     private readonly json: boolean,
@@ -156,6 +163,7 @@ export class Output {
     servers: ServerSummary[],
     workspaceCount?: number,
     showClawgateVersion = false,
+    metadataPrompts: MetadataPrompt[] = [],
   ): void {
     const now = Date.now();
     const warnings = servers.flatMap((server) => {
@@ -182,6 +190,7 @@ export class Output {
       status: "success",
       servers,
       warnings,
+      ...(metadataPrompts.length ? { metadata_prompts: metadataPrompts } : {}),
       workspace_count: workspaceCount ?? null,
       discovery_state:
         workspaceCount === 0
@@ -227,6 +236,10 @@ export class Output {
         this.stdout.write(
           `${index + 1}. ${server.alias} — Workspace ID: ${server.server_id} — ${server.workspace_url} — ${status} — ${server.pairing_ready ? "ready to pair" : "not ready to pair"}\n`,
         );
+        if (server.is_owner !== undefined)
+          this.stdout.write(
+            `   Access: ${server.is_owner ? "Owner" : "Shared"}\n`,
+          );
         if (showClawgateVersion) {
           const { version, available_version, update_available } = server;
           const updateStatus =
@@ -277,18 +290,28 @@ export class Output {
     }
   }
 
-  serverMetadataPrompt(server: ServerSummary): void {
+  serverMetadataPrompt(
+    server: ServerSummary,
+    listPrompts?: MetadataPrompt[],
+  ): void {
     const updateCommand = `teamclaws workspaces update ${server.server_id} --name "Your workspace name" --description "What this workspace is for"`;
     const guidance = `You can always change the name and description later with: ${updateCommand}`;
     const question =
       "Would you like to set the workspace name and description now?";
+    const prompt = {
+      question,
+      message: `Your workspace ${JSON.stringify(server.alias)} is missing a user-defined name or description. ${question} ${guidance}`,
+      update_command: updateCommand,
+    };
+    if (listPrompts) {
+      listPrompts.push({ server_id: server.server_id, ...prompt });
+      return;
+    }
     this.event({
       schema_version: OUTPUT_SCHEMA_VERSION,
       event: "server_metadata_prompt",
       server,
-      question,
-      message: `Your workspace ${JSON.stringify(server.alias)} is missing a user-defined name or description. ${question} ${guidance}`,
-      update_command: updateCommand,
+      ...prompt,
     });
     if (!this.json)
       this.stdout.write(
@@ -375,7 +398,7 @@ export class Output {
       if (capabilities) this.renderInventory(capabilities, generatedAt);
       else
         this.stdout.write(
-          "Capabilities unavailable; use chat capabilities to refresh.\n",
+          `To see workspace capabilities, run \`teamclaws chat capabilities ${serverId}\`.\n`,
         );
     }
   }

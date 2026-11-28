@@ -780,6 +780,9 @@ export function parseServersResponse(value: unknown): ServerSummary[] {
       ...(typeof server.can_edit_metadata === "boolean"
         ? { can_edit_metadata: server.can_edit_metadata }
         : {}),
+      ...(typeof server.is_owner === "boolean"
+        ? { is_owner: server.is_owner }
+        : {}),
       workspace_url: canonicalWorkspaceUrl(server.workspace_url),
       status: requireString(server.status, "workspace status", 40),
       pairing_ready: server.pairing_ready,

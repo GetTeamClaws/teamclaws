@@ -17,7 +17,7 @@ import {
 } from "./external-chat.js";
 import type { FetchLike } from "./http.js";
 import { fetchLiteOffer, LITE_OFFER_URL } from "./lite-offer.js";
-import { Output, type Writable } from "./output.js";
+import { Output, type MetadataPrompt, type Writable } from "./output.js";
 import { PairingClient } from "./pairing.js";
 import { runProjects, type ProjectRequest } from "./projects.js";
 import { runShell, shellFetch } from "./shell.js";
@@ -324,6 +324,9 @@ export async function run(
       }
       case "servers_list": {
         const inventory = await broker.servers(signal);
+        const metadataPrompts: MetadataPrompt[] | undefined = parsed.json
+          ? []
+          : undefined;
         await offerServerMetadata(
           inventory.servers,
           broker,
@@ -331,8 +334,14 @@ export async function run(
           output,
           dependencies.io,
           signal,
+          metadataPrompts,
         );
-        output.servers(inventory.servers, inventory.workspace_count, true);
+        output.servers(
+          inventory.servers,
+          inventory.workspace_count,
+          true,
+          metadataPrompts,
+        );
         return 0;
       }
       case "workspace_claim": {
@@ -1249,6 +1258,7 @@ async function offerServerMetadata(
   output: Output,
   io?: AppIo,
   signal?: AbortSignal,
+  listPrompts?: MetadataPrompt[],
 ): Promise<void> {
   const interactive =
     io?.interactive ?? (process.stdin.isTTY && process.stdout.isTTY);
@@ -1264,7 +1274,7 @@ async function offerServerMetadata(
     const claimed = await broker.claimMetadataPrompt(server.server_id, signal);
     Object.assign(server, claimed.server);
     if (!claimed.should_prompt) continue;
-    output.serverMetadataPrompt(server);
+    output.serverMetadataPrompt(server, listPrompts);
     if (json) continue;
     const terminal = createInterface({
       input: io?.input ?? process.stdin,
