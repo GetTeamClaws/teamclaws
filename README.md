@@ -119,6 +119,11 @@ uses tied to the user's work and continues an already authorized task. An
 explicit request to stop at pairing takes precedence. Pairing and status-only
 requests never implicitly authorize deployment, sharing, or a remote chat.
 
+Run `teamclaws workspaces claim` (or add `--json`) to read the
+[current Lite offer](https://www.teamclaws.com/offers/agents/). The preview
+shows the trial and renewal terms without claiming a workspace.
+`teamclaws workspaces claim --confirm` submits a claim.
+
 The bundled [workspace capability guide](skills/teamclaws-onboard/references/workspace-uses.md)
 explains complete jobs, long-running services, external APIs and servers, agents
 with browser access, development and production hosting, and sharing. Agents

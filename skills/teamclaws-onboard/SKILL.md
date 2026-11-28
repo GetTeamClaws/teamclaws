@@ -143,7 +143,7 @@ progress or recover after interruption, run the returned status command with
 `--json`. Report Ready only for the `ready` outcome. If the start outcome is
 unknown, check that same run before considering any new upgrade request.
 
-- Claim one Lite workspace free for two days without a credit card. Your trial starts when you claim. Add a card for five more free days, then Lite renews at $29/month unless canceled. Run `teamclaws workspaces claim --confirm --json` only after the user authorizes the claim. Then list workspaces and prefer the recorded state and transition
+- Run `teamclaws workspaces claim --json` to read the current offer and consent guidance. Follow that guidance and show the current terms before running `teamclaws workspaces claim --confirm --json`. The public offer is at https://www.teamclaws.com/offers/agents/. Then list workspaces and prefer the recorded state and transition
   time when present. If Building, say the estimated build time is about 10 minutes.
   Prepare the app's files and configuration while it builds, then check the list
   again as work proceeds. Verify readiness through actual state and command results.

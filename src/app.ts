@@ -16,6 +16,7 @@ import {
   type ChatWatchOptions,
 } from "./external-chat.js";
 import type { FetchLike } from "./http.js";
+import { fetchLiteOffer, LITE_OFFER_URL } from "./lite-offer.js";
 import { Output, type Writable } from "./output.js";
 import { PairingClient } from "./pairing.js";
 import { runProjects, type ProjectRequest } from "./projects.js";
@@ -89,6 +90,36 @@ export async function run(
   if (parsed.action === "help") {
     stdout.write(parsed.text ?? helpText());
     return 0;
+  }
+  if (parsed.action === "workspace_claim_preview") {
+    try {
+      const offer = await fetchLiteOffer(dependencies.fetcher ?? fetch, signal);
+      if (parsed.json) {
+        stdout.write(
+          `${JSON.stringify({ schema_version: 1, event: "workspace_claim_preview", ...offer, offer_url: LITE_OFFER_URL })}\n`,
+        );
+      } else {
+        const price = new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: offer.renewal.currency,
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 2,
+        }).format(offer.renewal.amount_minor / 100);
+        stdout.write(
+          `Claim one Lite workspace free for ${offer.cardless_days} days without a card. Add a card for ${offer.extra_days_with_card} more free days. Your workspace then renews as ${offer.renewal.name} at ${price}/month unless canceled.\n\n${offer.claim_guidance}\n\nTo claim, run teamclaws workspaces claim --confirm.\n`,
+        );
+      }
+      return 0;
+    } catch {
+      output.error(
+        new TeamClawsError(
+          "lite_offer_unavailable",
+          `Could not load the current Lite offer. See ${LITE_OFFER_URL}`,
+          { exitCode: 1 },
+        ),
+      );
+      return 1;
+    }
   }
   if (parsed.action === "version") {
     stdout.write(`${PACKAGE_VERSION}\n`);
@@ -561,7 +592,11 @@ type ParsedArguments =
     }
   | { action: "signup_verify"; json: boolean }
   | {
-      action: "auth_status" | "servers_list" | "workspace_claim";
+      action:
+        | "auth_status"
+        | "servers_list"
+        | "workspace_claim"
+        | "workspace_claim_preview";
       json: boolean;
     }
   | { action: "logout"; json: boolean; revoke: boolean }
@@ -583,7 +618,38 @@ type ParsedArguments =
   | { action: "chat_send"; json: boolean; options: ChatSendOptions }
   | { action: "chat_watch"; json: boolean; options: ChatWatchOptions };
 
+const SUBCOMMAND_HELP = new Map([
+  [
+    "workspaces claim",
+    `Usage: teamclaws workspaces claim [--confirm] [--json]\n\nWithout --confirm, show the current offer without claiming.\nCurrent offer: ${LITE_OFFER_URL}\n`,
+  ],
+  [
+    "workspaces upgrade",
+    "Usage: teamclaws workspaces upgrade <target> [--no-wait] [--json]\n       teamclaws workspaces upgrade status <target> [--run-id <id>] [--json]\n",
+  ],
+  [
+    "pair",
+    "Usage: teamclaws pair [workspace-id-or-https-url] [--no-open] [--json]\n       teamclaws pair status <workspace-id-or-https-url> [--json]\n",
+  ],
+  [
+    "files link",
+    "Usage: teamclaws files link <target> --path <file> [--json]\n",
+  ],
+]);
+
 export function parseArguments(arguments_: string[]): ParsedArguments {
+  const helpArgs = arguments_.filter((argument) => argument !== "--json");
+  const helpFlag = helpArgs.at(-1);
+  if (helpFlag === "--help" || helpFlag === "-h") {
+    const help = SUBCOMMAND_HELP.get(helpArgs.slice(0, -1).join(" "));
+    if (help) {
+      return {
+        action: "help",
+        json: arguments_.includes("--json"),
+        text: help,
+      };
+    }
+  }
   if (arguments_[0] === "files" && arguments_[1] === "link") {
     const target = requiredPositional(arguments_, 2);
     const { values, flags } = parseNamedOptions(arguments_.slice(3), {
@@ -807,11 +873,12 @@ export function parseArguments(arguments_: string[]): ParsedArguments {
       values: [],
       booleans: ["--confirm", "--json"],
     });
-    if (!flags.has("--confirm"))
-      throw usageError(
-        "Claim one Lite workspace free for two days without a credit card. Your trial starts when you claim. Add a card for five more free days, then Lite renews at $29/month unless canceled. To claim, run teamclaws workspaces claim --confirm.",
-      );
-    return { action: "workspace_claim", json: flags.has("--json") };
+    return {
+      action: flags.has("--confirm")
+        ? "workspace_claim"
+        : "workspace_claim_preview",
+      json: flags.has("--json"),
+    };
   }
   if (workspaceGroup && arguments_[1] === "upgrade") {
     const status = arguments_[2] === "status";
